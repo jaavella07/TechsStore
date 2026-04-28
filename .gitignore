@@ -12,11 +12,11 @@ READMEE.md
 .env.*.local
 !.env.example
 
-.notifications
-.docker-compose.yml
-.seeds
-.auth.service.spec.ts
-.inventory.service.spec.ts
+notifications
+docker-compose.yml
+seeds
+auth.service.spec.ts
+inventory.service.spec.ts
 
 # Logs
 logs/

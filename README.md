@@ -1,6 +1,6 @@
 # 🛒 TechsStore — E-Commerce en NestJS 
 
-> Stack: **NestJS · TypeORM · PostgreSQL · Redis · BullMQ · Stripe · Langchain · LangGraph
+> Stack: NestJS · TypeORM · PostgreSQL · Redis · BullMQ · Stripe · Langchain · LangGraph
 
 ---
 ¿Porque?
@@ -18,8 +18,6 @@ Creacion repositorio: 27/04/26
 
 ---
 
----
-
 ## Decisiones de diseño
 
 ### 1. Manejo de usuario 
@@ -33,8 +31,6 @@ JWT con Rotación de Refresh Tokens
 - Proteccion de rutas bajo los siguientes roles:
   -ADMIN
   -CLIENT
-
----
 
 ---
 
