@@ -1,0 +1,52 @@
+# Dependencias
+node_modules/
+
+# Build
+dist/
+build/
+
+# Variables de entorno (NUNCA subir al repo)
+READMEE.md
+.env
+.env.local
+.env.*.local
+!.env.example
+
+.notifications
+.docker-compose.yml
+.seeds
+.auth.service.spec.ts
+.inventory.service.spec.ts
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Facturas PDF generadas en runtime
+invoices/
+
+# Coverage de tests
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Temporal
+tmp/
+temp/
