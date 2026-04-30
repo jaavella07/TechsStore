@@ -6,17 +6,12 @@ dist/
 build/
 
 # Variables de entorno (NUNCA subir al repo)
-READMEE.md
+MY_README.md
 .env
 .env.local
 .env.*.local
 !.env.example
 
-notifications
-docker-compose.yml
-seeds
-auth.service.spec.ts
-inventory.service.spec.ts
 
 # Logs
 logs/
