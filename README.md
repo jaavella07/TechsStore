@@ -1,9 +1,9 @@
 # 🛒 TechsStore — E-Commerce
 
----
 ¿Porque crear este proyecto?
 
-Mi objetivo es desarrollar TechsStore para reforzar lo aprendido en mi camino como Junior, reforzando conceptos y enfrendandome a problemas reales que este desarrollo puede generar. El e-commerce dinámico es para aquellas micro-tiendas que hoy en dia solo operan de manera física y lograr sumarle un asistente que se personalice según lo que el usuario necesite. La primera prueba de fuego será aplicarlo al negocio de mi familia "El Mirador".
+Mi objetivo es desarrollar TechsStore para reforzar lo aprendido en mi camino como Junior, reforzando conceptos y enfrendandome a problemas reales que este desarrollo puede generar, tabien lograr implementar un asistente que se personalice según lo que el usuario necesite. 
+Este e-commerce es para aquellas micro-tiendas que hoy en dia solo operan de manera física y la primera prueba de fuego será aplicarlo al negocio de mi familia "El Mirador".
 
 Con base en lo anterior cuento con los siguientes repositorios,
 
@@ -11,38 +11,38 @@ Con base en lo anterior cuento con los siguientes repositorios,
 2. microservices:   https://github.com/jaavella07/microservices
 3. bookstore-api:   https://github.com/jaavella07/bookstore-api
 
-Por lo tanto mantendre documentado mi proceso de desarrollo.
-
----
+Y por lo tanto mantendre documentado mi proceso de desarrollo.
 
 ## Decisiones de diseño
 
 ---
 > Stack: NestJS · TypeORM · PostgreSQL · Redis · BullMQ · Stripe · Langchain · LangGraph
 ---
-> Base de Datos: La BD usada fue Postgre gestionada a través del ORM TypeORM, la cual me ayuda a generar el almacenamiento de usuario,inventario de productos, categorias, ordenes, además del manejo temporal del carrito de compras. También uso Postgre como base de datos para persistir el estado y la memoria del asistente virtual.
+> Base de Datos: La BD usada fue Postgres gestionada a través del ORM TypeORM, el cual me ayuda a generar el almacenamiento de usuario,inventario de productos, categorias, ordenes, además del manejo temporal del carrito de compras. También uso Postgres como base de datos para persistir el estado y la memoria del asistente virtual.
 ---
 
 ### 1. Manejo de usuarios 
 
-Tomando el repositorio **bookstore-api** como referencia, realice la construccion del manejo de autenticacion y autorizacion de usuarios de la siguientes manera:
+Tomando el repositorio **bookstore-api** como referencia, realicé la construcción del manejo de autenticación y autorización de usuarios de la siguiente manera:
 
-**Autenticacion (auth-users)**
+**Auth - Users (Autenticación - Autorización)**
 
-Estos modulos cuentan con la configuracion de registro, acceso, validacion, renovacion, cambio de estado, autorizacion y Logout.
+Estos módulos cuentan con la configuración de registro, acceso, validación, renovación, cambio de estado, autorización y logout.
 
-JWT con Rotación de Refresh Tokens
-- Access Token: **60 min** (corta vida, sin estado)
-- Refresh Token: **7 días** (valor almacenado en BD y hasheado con bcrypt)
-- Al usar un refresh token se **revoca** y se emite uno nuevo
+**JWT** con rotación de refresh tokens:
 
-STRATEGIES para el manejo del JWT 
+Access Token: **60 min** (corta vida, sin estado)
+Refresh Token: **7 días** (valor almacenado en BD y hasheado con bcrypt)
+Al usar un refresh token, se revoca y se emite uno nuevo
 
-GUARD proteccion de rutas bajo los siguientes roles:
-  -ADMIN
-  -CLIENT
+**Strategies** para el manejo del JWT
 
-El manejo de usuarios se realiza bajo los siguientes endpoint:
+**Guard** protección de rutas bajo los siguientes roles:
+
+  - ADMIN
+  - CLIENT
+
+El manejo de usuarios se realiza bajo los siguientes endpoints:
 
 | Método | Ruta | Rol | Descripción |
 |--------|------|-----|-------------|
@@ -56,6 +56,9 @@ El manejo de usuarios se realiza bajo los siguientes endpoint:
 |DELETE| `/users/:id`      | ADMIN   | Desactivar usuario por ID  |
 
 ---
+
+Bajo el repositorio de **microservices** implemente los siguientes modulos, los cuales gestionan uso basico de un e-commerce almacenar productos, contar con un inventario, generar ordenes de compra y manejar un registro de reservas de stock
+
 
 ### 2. Productos 
 
@@ -74,8 +77,41 @@ El manejo de productos se realiza bajo los siguientes endpoint:
 | Método | Ruta | Rol | Descripción |
 |--------|------|-----|-------------|
 | GET  | `/products`                      | Público | Listar productos con filtros   |
+| GET  | `/products/:id`                  | Público | Listar productos por ID        |
+| GET  | `/products/categories`           | Público | Ver detalles del producto      |
 | POST | `/products`                      | ADMIN   | Crear producto                 |
+|PATCH | `/products/:id`                  | ADMIN   | Actualizar producto            |
+|DELETE| `/products/:id`                  | ADMIN   | Desactivar producto por ID     |
+| GET  | `/products/:id/inventory`        | ADMIN   | Ver inventario de un producto  |
 |PATCH | `/products/:id/inventory/adjust` | ADMIN   | Ajuste manual de stock         |
+|POST  | `/products/categories`           | ADMIN   | Crear categoria                |
+---
+
+### 3. Carrito
+
+El carrito necesita token de acceso ya se cliente o admin. Cada operación ajusta las reservas de inventario automáticamente. 
+
+El manejo de reserva de productos se realiza bajo los siguientes endpoint:
+
+| Método | Ruta | Rol | Descripción |
+|--------|------|-----|-------------|
+| GET  | `/cart`               | CLIENT | Ver carrito activo  |
+| POST | `/cart/items`         | CLIENT | Añadir al carrito   |
+|PATCH | `/cart/items/:itemId` | CLIENT | Ajustar reserva     |
+|DELETE| `/cart/items/:itemId` | CLIENT | Liberar reserva     |
+
+
+---
+### 4. Ordernes 
+
+
+El manejo de ordenes se realiza bajo los siguientes endpoint:
+
+| Método | Ruta | Rol | Descripción |
+|--------|------|-----|-------------|
+| GET  | `/orders/me`         | Público | Mis órdenes                 |
+| POST | `/orders`            | Público | Crear orden desde carrito   |
+|PATCH | `/orders/:id/status` | ADMIN   | Actualizar estado de orden  |
 
 
 ---
