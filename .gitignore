@@ -6,12 +6,15 @@ dist/
 build/
 
 # Variables de entorno (NUNCA subir al repo)
-MY_README.md
 .env
 .env.local
 .env.*.local
 !.env.example
-
+ 
+# Archivos 
+MY_README.md
+CLAUDE.md
+.claude
 
 # Logs
 logs/
