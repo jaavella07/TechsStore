@@ -13,14 +13,14 @@ async function bootstrap() {
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.TCP,
     options: {
-      host: process.env.NOTIFICATIONS_HOST ?? '0.0.0.0',
-      port: parseInt(process.env.NOTIFICATIONS_PORT ?? '4000'),
+      host: '0.0.0.0',
+      port: parseInt(process.env.NOTIFICATIONS_TCP_PORT ?? '4000'),
     },
   });
 
   // ── También consume la cola de BullMQ Redis directamente ──
   await app.startAllMicroservices();
-  await app.listen(process.env.NOTIFICATIONS_PORT ?? 4000);
+  await app.listen(parseInt(process.env.NOTIFICATIONS_HTTP_PORT ?? '4001'));
 
   console.log('\n📬 Microservicio de Notificaciones corriendo en puerto 4000\n');
 }

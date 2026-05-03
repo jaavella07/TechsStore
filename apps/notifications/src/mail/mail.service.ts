@@ -1,17 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService }      from '@nestjs/config';
-import * as nodemailer        from 'nodemailer';
+import { ConfigService } from '@nestjs/config';
+import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class MailService {
-  private readonly logger      = new Logger(MailService.name);
+  private readonly logger = new Logger(MailService.name);
   private readonly transporter: nodemailer.Transporter;
-  private readonly from:        string;
+  private readonly from: string;
 
   constructor(private readonly config: ConfigService) {
     this.transporter = nodemailer.createTransport({
-      host:   config.get('MAIL_HOST',  'smtp.gmail.com'),
-      port:   config.get<number>('MAIL_PORT', 587),
+      host: config.get('MAIL_HOST', 'smtp.gmail.com'),
+      port: config.get<number>('MAIL_PORT', 587),
       secure: false,
       auth: {
         user: config.get('MAIL_USER'),
@@ -91,15 +91,25 @@ export class MailService {
   }
 
   // ── Envío genérico ───────────────────────────────────────
+  // private async send(to: string, subject: string, html: string): Promise<void> {
+  //   try {
+  //     await this.transporter.sendMail({ from: this.from, to, subject, html });
+  //   } catch (err) {
+  //     this.logger.error(`Error enviando email a ${to}: ${err.message}`);
+  //     throw err; // BullMQ reintentará el job
+  //   }
+  // }
   private async send(to: string, subject: string, html: string): Promise<void> {
     try {
       await this.transporter.sendMail({ from: this.from, to, subject, html });
-    } catch (err) {
-      this.logger.error(`Error enviando email a ${to}: ${err.message}`);
-      throw err; // BullMQ reintentará el job
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : JSON.stringify(err);
+
+      this.logger.error(`Error enviando email a ${to}: ${message}`);
+      throw err;
     }
   }
-
   // ── Layout base del email ────────────────────────────────
   private wrapLayout(content: string): string {
     return `

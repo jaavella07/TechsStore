@@ -27,4 +27,4 @@ USER node
 
 EXPOSE 4000
 
-CMD ["node", "dist/apps/notifications/main"]
+CMD ["node", "dist/apps/notifications/apps/notifications/src/main"]

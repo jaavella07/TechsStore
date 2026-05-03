@@ -162,6 +162,60 @@ El manejo de pagos se realiza bajo los siguientes endpoints:
 | POST | `/payments/checkout` | CLIENT | Crear sesión de pago en Stripe |
 | POST | `/payments/webhook`  | Stripe | Recibir confirmación de pago   |
 
+---
+
+### 6. Colas (BullMQ)
+
+Cuando Stripe confirma un pago hay varias cosas que tienen que pasar al mismo tiempo: actualizar la orden, generar la factura, enviar el correo y avisar que hay un envío pendiente. Al principio pensé en hacer todo eso en el mismo lugar donde llega la confirmación de Stripe, pero me di cuenta de que si algo fallaba (el correo, por ejemplo) todo se caía. Ahí fue cuando aprendí para qué sirven las colas.
+
+Con **BullMQ** cada tarea queda en una lista de pendientes guardada en Redis. Si algo falla, lo reintenta solo. No tengo que preocuparme por eso.
+
+| Cola | Qué hace |
+|------|----------|
+| `orders-queue`   | Actualiza la orden y descuenta el stock |
+| `invoices-queue` | Genera el PDF de la factura |
+| `emails-queue`   | Envía el correo de confirmación |
+| `shipping-queue` | Avisa que hay un pedido listo para enviar |
+
+Para no escribir el nombre de cada cola como texto suelto en varios archivos, los centralicé en `shared/enums`. Si algún día cambio un nombre, lo cambio en un solo lugar.
+
+En Docker hay un panel visual en `localhost:3030` (Bull Board) donde puedo ver cuántos jobs están pendientes, cuáles fallaron y cuáles ya terminaron. Me resultó muy útil para depurar.
+
+---
+
+### 7. Notificaciones
+
+Este fue el módulo que más me costó construir al principio. La idea es que cuando pasa algo importante en la tienda (un pago, un envío) el cliente recibe un correo. Lo complicado fue separarlo del resto de la app. De manera que en un futuro sea mas facil adaptar otro tipo de notificaciones, como puede ser WhatsApp.
+
+El microservicio de notificaciones corre por su cuenta, en otro proceso. La API le manda una señal por **TCP** diciéndole qué correo enviar, y él se encarga del resto usando **Nodemailer**.
+
+Los correos que puede enviar son:
+- Confirmación de orden
+- Aviso de envío con número de rastreo
+- Factura lista para descargar(PDF)
+- Bienvenida al registrarse
+
+Todos usan la misma plantilla HTML que armé en `MailService`, así todos los correos se ven igual y con el logo de TechsStore.
+
+Algo que me generó un error al levantar Docker fue que intenté usar el mismo puerto (`4000`) para dos cosas distintas dentro del mismo proceso: recibir mensajes TCP de la API y levantar el servidor HTTP. Eso causó un `EADDRINUSE`. Lo resolví usando puertos separados: TCP en `4000` y HTTP en `4001`. Truco del profesor Fernando Herrera aprendido en el repositorio de microservices.
+
+---
+
+### Despliegue Docker — Errores y resoluciones
+
+Al intentar levantar el proyecto por primera vez con `docker-compose up`, me encontré con una cadena de cuatro errores que, vistos uno a uno, parecían aislados pero en realidad tenían causas raíz distintas. Documentar esto aquí me sirve de referencia y explica por qué el `docker-compose.yml` y los Dockerfiles tienen ciertas decisiones que de otro modo lucen innecesarias.
+
+**Error 1 — `Cannot find module '/app/dist/apps/api/main'`**
+
+El contenedor arrancaba y moría inmediatamente. La compilación había "funcionado", pero el `dist/` llegaba vacío al stage de producción. La causa: no existía `.dockerignore`. Creé `.dockerignore` excluyendo `node_modules`, `dist`, `.git` y `.env`, y el problema desapareció.
+
+**Error 2 — `ECONNREFUSED 172.x.x.x:5433`**
+
+La API no conectaba a Postgres. El `.env` local usa `DB_PORT=5433` para conectarse desde el host, pero dentro de la red Docker el servicio `postgres` expone el puerto `5432`. El `docker-compose.yml` sobreescribía `DB_HOST` con el nombre del servicio pero no el puerto. Agregué `DB_PORT: 5432` a la sección `environment` del servicio `api`.
+
+**Error 4 — `EADDRINUSE :::4000`**
+
+El microservicio de notificaciones crasheaba al intentar escuchar dos veces en el mismo puerto. `main.ts` usaba `NOTIFICATIONS_PORT` tanto para el transporte TCP como para el servidor HTTP. Separé los puertos en dos variables: `NOTIFICATIONS_TCP_PORT=4000` (el que el API usa para enviar mensajes) y `NOTIFICATIONS_HTTP_PORT=4001` (servidor interno del microservicio).
 
 ---
 
@@ -170,7 +224,6 @@ El manejo de pagos se realiza bajo los siguientes endpoints:
 ### 1. Instalar dependencias
 ```bash
 npm install
-
 ```
 
 ### 2. Configurar variables de entorno
@@ -179,37 +232,38 @@ cp .env.example .env
 
 ```
 
-### 3. Levantar infraestructura (DB + Redis)
+### 3. Opción A — Todo en Docker (simula producción)
 ```bash
-docker-compose up --build
-docker-compose up postgres redis -d
-
+docker-compose up --build -d
 ```
+Levanta: PostgreSQL · Redis · API · Notifications · Bull Board
 
-### 4. Ejecutar en desarrollo
+### 4. Opción B — Solo infraestructura en Docker + apps en local 
 ```bash
-npm run start:dev
 
+docker-compose up postgres redis bull-board -d
+
+
+npm run start:dev                    # API en localhost:3000
+npm run start:dev:notifications      # Notifications en localhost:4000
 ```
 
-### 5. Abrir Swagger
-```
-Documentacion 
-http://localhost:3000/docs
-
-```
-
-### 6. Dashboard de colas BullMQ
+### 5. Verificar que todo esté corriendo
 ```bash
-docker-compose up bull-board -d
-# Abrir: http://localhost:3030
+docker-compose ps
 ```
+
+### 6. URLs disponibles
+
+| Servicio | URL |
+|---|---|
+| API | `http://localhost:3000/api/v1` |
+| Swagger (docs) | `http://localhost:3000/docs` |
+| Bull Board (colas) | `http://localhost:3030` |
 
 ### 7. Probar Stripe
 ```bash
 stripe login
-stripe trigger checkout.session.completed
-
 stripe listen --forward-to localhost:3000/payments/webhook
-
+stripe trigger checkout.session.completed
 ```

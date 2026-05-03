@@ -2,7 +2,6 @@ import { Module }       from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { BullModule }   from '@nestjs/bullmq';
 import { MailModule }   from './mail/mail.module';
-import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { QueueName }    from '../../../shared/enums';
 import { NotificationsController } from './notifications.controller';
 
@@ -23,7 +22,6 @@ import { NotificationsController } from './notifications.controller';
     BullModule.registerQueue({ name: QueueName.EMAILS }),
 
     MailModule,
-    WhatsappModule,
   ],
   controllers: [NotificationsController],
 })
