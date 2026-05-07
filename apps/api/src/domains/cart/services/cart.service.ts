@@ -49,10 +49,6 @@ export class CartService {
     return cart;
   }
 
-  // ── Añadir producto al carrito ────────────────────────────
-  // FIX: No usamos dataSource.transaction() aquí para evitar mezclar
-  // el manager de la transacción con this.cartRepo.
-  // Cada operación atómica (reserva de stock) usa su propio transaction.
   async addItem(userId: string, dto: AddToCartDto): Promise<Cart> {
     const cart    = await this.getOrCreateCart(userId);
     const product = await this.productsService.findById(dto.productId);
@@ -77,9 +73,7 @@ export class CartService {
       await this.cartItemRepo.save(item);
     }
 
-    // FIX CLAVE: usar update() en lugar de save(cart)
-    // save(cart) con cascade:true + cart.items=[] borraba los ítems recién guardados.
-    // update() solo toca el campo indicado — no dispara cascade en items.
+
     await this.cartRepo.update(cart.id, { expiresAt: this.newExpiry() });
 
     this.logger.log(`Item añadido: user=${userId} product=${dto.productId} qty=${dto.quantity}`);
@@ -106,7 +100,7 @@ export class CartService {
     item.quantity = dto.quantity;
     await this.cartItemRepo.save(item);
 
-    // FIX: update() en lugar de save(cart) para evitar cascade
+
     await this.cartRepo.update(cart.id, { expiresAt: this.newExpiry() });
 
     return this.getOrCreateCart(userId);
@@ -122,7 +116,6 @@ export class CartService {
     await this.inventoryService.release(item.product.id, item.quantity);
     await this.cartItemRepo.remove(item);
 
-    // FIX: update() en lugar de save(cart)
     await this.cartRepo.update(cart.id, { expiresAt: this.newExpiry() });
 
     return this.getOrCreateCart(userId);
@@ -187,7 +180,7 @@ export class CartService {
     const cart = this.cartRepo.create({
       user:      { id: userId },
       expiresAt: this.newExpiry(),
-      // FIX: NO inicializar items: [] aquí — TypeORM lo trata como "cascade vacío"
+      // NO inicializar items: [] aquí — TypeORM lo trata como "cascade vacío"
     });
     return this.cartRepo.save(cart);
   }

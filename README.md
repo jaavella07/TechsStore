@@ -219,6 +219,54 @@ El microservicio de notificaciones crasheaba al intentar escuchar dos veces en e
 
 ---
 
+### Notas 
+
+Con ayuda del modelo de Gemini pro 3.1 y usando el siguiente prompt, se realizo la insercion de productos en la Base de datos, para la ejecucion de pruebas. 
+
+```
+Con base en las entidades definidas para productos, genera un script SQL completo para la creación e inserción de datos de productos.
+
+Entidades: 
+
+Category
+Inventory
+Product
+
+Los datos deben ser flexible y adaptable a diferentes tipos de negocios, incluyendo:
+
+Tiendas de tecnología (celulares, laptops, accesorios, periféricos, etc.)
+Microempresas (productos artesanales, ropa, cosméticos, emprendimientos locales, etc.)
+Tiendas de barrio o minimercados (leche, huevos, paquetes, bebidas, dulces, productos de canasta familiar, aseo, entre otros)
+
+El resultado debe entregarse en SQL estándar, organizado y listo para ejecutarse en PostgreSQL.
+
+```
+
+El script completo y actualizado se encuentra en `apps/api/src/common/seeds/seed-multisector.sql`. Cubre las **6 tablas** que componen el dominio de productos:
+
+| Tabla | Descripción | Filas seed |
+|---|---|---|
+| `categories` | Árbol de categorías por sector (raíz + subcategorías) | 15 |
+| `categories_closure` | Relaciones padre→hijo requeridas por `@Tree('closure-table')` de TypeORM | 26 |
+| `products` | Productos con precio en centavos, SKU, marca y descuento | 23 |
+| `product_attributes` | Atributos clave-valor por producto (RAM, color, peso, etc.) | ~80 |
+| `product_images` | Imágenes con orden y flag `is_primary` | 28 |
+| `inventory` | Stock total, reservado y umbral de alerta por producto | 23 |
+
+> `categories_closure` es obligatoria: sin sus filas, las consultas de árbol de TypeORM (`getTree`, `findDescendants`) devuelven resultados vacíos aunque `categories` tenga datos.
+
+Para ejecutar el seed:
+```bash
+# Con psql directo
+psql -U postgres -d techsstore -f apps/api/src/common/seeds/seed-multisector.sql
+
+# Desde Docker
+docker exec -i techsstore_db psql -U postgres -d techsstore \
+  < apps/api/src/common/seeds/seed-multisector.sql
+```
+
+---
+
 ## Correr proyecto
 
 ### 1. Instalar dependencias

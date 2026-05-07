@@ -9,6 +9,7 @@
     "allowSyntheticDefaultImports": true,
     "target": "ES2021",
     "moduleResolution": "node",
+    "strictPropertyInitialization": false,
     "sourceMap": true,
     "outDir": "./dist",
     "incremental": true,

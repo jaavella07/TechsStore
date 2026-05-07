@@ -61,8 +61,8 @@ async function bootstrap() {
   });
 
   await app.listen(port);
-  console.log(`\n🚀  API:   http://localhost:${port}/${prefix}`);
-  console.log(`📖  Docs:  http://localhost:${port}/docs\n`);
+  console.log(`\n  API:   http://localhost:${port}/${prefix}`);
+  console.log(`  Docs:  http://localhost:${port}/docs\n`);
 }
 
 bootstrap();

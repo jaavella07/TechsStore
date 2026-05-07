@@ -1,6 +1,4 @@
-import {
-  Injectable, NestInterceptor, ExecutionContext, CallHandler,
-} from '@nestjs/common';
+import {  Injectable, NestInterceptor, ExecutionContext, CallHandler} from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map }        from 'rxjs/operators';
 
@@ -15,7 +13,7 @@ export interface StandardResponse<T> {
  * {
  *   "success": true,
  *   "data": { ... },
- *   "timestamp": "2024-..."
+ *   "timestamp": "2026-..."
  * }
  */
 @Injectable()
