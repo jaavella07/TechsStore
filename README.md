@@ -246,6 +246,13 @@ Tiendas de barrio o minimercados (leche, huevos, paquetes, bebidas, dulces, prod
 El resultado debe entregarse en SQL estándar, organizado y listo para ejecutarse en PostgreSQL.
 
 ```
+
+Con los datos de prueba ya en el SQL, necesitaba una forma de cargarlos sin salir del entorno HTTP ni ejecutar scripts manuales. Decidí exponer un endpoint `POST /seed/run` protegido por JWT y rol `ADMIN` que lee y ejecuta `seed-multisector.sql` en tiempo de ejecución.
+
+El punto técnico más relevante fue no usar repositorios individuales de TypeORM sino inyectar el `DataSource` directamente con `@InjectDataSource()`. Eso me permitió abrir un `QueryRunner`, iniciar una transacción propia y ejecutar cada sentencia SQL en secuencia, haciendo rollback automático si alguna falla. 
+
+Los archivos generados: `seed.service.ts`, `seed.controller.ts` y `seed.module.ts` en `apps/api/src/common/seeds/`, con `SeedModule` registrado en `AppModule`.
+
 ---
 
 ## Correr proyecto

@@ -12,6 +12,7 @@ import { AuthModule }      from './modules/auth/auth.module';
 import { PaymentsModule }  from './modules/payments/payments.module';
 import { QueuesModule }    from './modules/queues/queues.module';
 import { HealthController } from './common/health/health.controller';
+import { SeedModule }       from './common/seeds/seed.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { HealthController } from './common/health/health.controller';
     AuthModule,
     PaymentsModule,
     QueuesModule,
+    SeedModule,
   ],
   controllers: [HealthController],
 })
