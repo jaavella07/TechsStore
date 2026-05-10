@@ -16,7 +16,7 @@ export class SeedService {
       throw new ForbiddenException('Seed no disponible en producción');
     }
 
-    const sqlPath = path.join(__dirname, 'seed-multisector.sql');
+    const sqlPath = this.resolveSqlPath();
     const sql = fs.readFileSync(sqlPath, 'utf-8');
 
     // Divide por ';', descarta vacíos, BEGIN y COMMIT (el QueryRunner los gestiona)
@@ -49,5 +49,22 @@ export class SeedService {
     }
 
     return { message: 'Seed multisector ejecutado exitosamente' };
+  }
+
+  private resolveSqlPath(): string {
+    const candidates = [
+      // Dev (ts-node): __dirname apunta al directorio fuente
+      path.join(__dirname, 'seed-multisector.sql'),
+      // Prod (Docker): NestJS CLI copia assets relativos a sourceRoot
+      path.join(process.cwd(), 'dist/apps/api/common/seeds/seed-multisector.sql'),
+    ];
+
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) return candidate;
+    }
+
+    throw new Error(
+      `seed-multisector.sql no encontrado. Rutas intentadas:\n  ${candidates.join('\n  ')}`,
+    );
   }
 }

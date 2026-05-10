@@ -11,8 +11,9 @@ import { OrdersModule }    from './domains/orders/orders.module';
 import { AuthModule }      from './modules/auth/auth.module';
 import { PaymentsModule }  from './modules/payments/payments.module';
 import { QueuesModule }    from './modules/queues/queues.module';
-import { HealthController } from './common/health/health.controller';
-import { SeedModule }       from './common/seeds/seed.module';
+import { HealthController }     from './common/health/health.controller';
+import { SeedModule }            from './common/seeds/seed.module';
+import { SnakeNamingStrategy }   from './common/snake-naming.strategy';
 
 @Module({
   imports: [
@@ -28,8 +29,9 @@ import { SeedModule }       from './common/seeds/seed.module';
         username:         cfg.get('DB_USER', 'postgres'),
         password:         cfg.get('DB_PASS', 'postgres'),
         database:         cfg.get('DB_NAME', 'techsstore'),
-        autoLoadEntities: true,
-        synchronize:      cfg.get<boolean>('DB_SYNC', false),
+        autoLoadEntities:  true,
+        synchronize:       cfg.get<boolean>('DB_SYNC', false),
+        namingStrategy:    new SnakeNamingStrategy(),
         logging:          cfg.get('NODE_ENV') === 'development',
         ssl:              cfg.get('NODE_ENV') === 'production'
                             ? { rejectUnauthorized: false }
