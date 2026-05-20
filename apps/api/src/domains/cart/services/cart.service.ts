@@ -153,7 +153,7 @@ export class CartService {
         await this.releaseCartReservations(cart);
         await this.cartRepo.remove(cart);
       } catch (err) {
-        this.logger.error(`Error liberando carrito ${cart.id}: ${err.message}`);
+        // this.logger.error(`Error liberando carrito ${cart.id}: ${err.message}`);
       }
     }
   }
@@ -165,7 +165,7 @@ export class CartService {
       try {
         await this.inventoryService.release(item.product.id, item.quantity);
       } catch (err) {
-        this.logger.warn(`No se pudo liberar reserva item=${item.id}: ${err.message}`);
+        // this.logger.warn(`No se pudo liberar reserva item=${item.id}: ${err.message}`);
       }
     }
   }

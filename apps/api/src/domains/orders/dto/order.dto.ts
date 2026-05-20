@@ -1,6 +1,6 @@
 import {
   IsString, IsOptional, ValidateNested, IsEnum,
-  MaxLength, IsPostalCode,
+  MaxLength, IsInt, Min,
 } from 'class-validator';
 import { Type }         from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -44,5 +44,27 @@ export class UpdateOrderStatusDto {
   @ApiPropertyOptional({ example: 'MX-DHL-12345' })
   @IsOptional()
   @IsString()
+  trackingNumber?: string;
+}
+
+export class AdminOrdersFilterDto {
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional() @IsInt() @Min(1) @Type(() => Number)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 10 })
+  @IsOptional() @IsInt() @Min(1) @Type(() => Number)
+  limit?: number;
+
+  @ApiPropertyOptional({ example: 'ORD-20240515-A3K9' })
+  @IsOptional() @IsString()
+  orderNumber?: string;
+
+  @ApiPropertyOptional({ example: 'user@example.com' })
+  @IsOptional() @IsString()
+  email?: string;
+
+  @ApiPropertyOptional({ example: 'MX-DHL-12345' })
+  @IsOptional() @IsString()
   trackingNumber?: string;
 }

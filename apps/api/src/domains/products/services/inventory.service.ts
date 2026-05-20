@@ -35,7 +35,7 @@ export class InventoryService {
         .getRepository(Inventory)
         .createQueryBuilder('inv')
         .setLock('pessimistic_write')
-        .where('inv.productId = :productId', { productId })
+        .where('inv.product_id = :productId', { productId })
         .getOne();
 
       if (!inv) throw new NotFoundException(`Inventario no encontrado para producto ${productId}`);
@@ -66,7 +66,7 @@ export class InventoryService {
         .getRepository(Inventory)
         .createQueryBuilder('inv')
         .setLock('pessimistic_write')
-        .where('inv.productId = :productId', { productId })
+        .where('inv.product_id = :productId', { productId })
         .getOne();
 
       if (!inv) throw new NotFoundException(`Inventario no encontrado para producto ${productId}`);
@@ -90,7 +90,7 @@ export class InventoryService {
         .getRepository(Inventory)
         .createQueryBuilder('inv')
         .setLock('pessimistic_write')
-        .where('inv.productId = :productId', { productId })
+        .where('inv.product_id = :productId', { productId })
         .getOne();
 
       if (!inv) throw new NotFoundException(`Inventario no encontrado`);
@@ -116,7 +116,7 @@ export class InventoryService {
         .getRepository(Inventory)
         .createQueryBuilder('inv')
         .setLock('pessimistic_write')
-        .where('inv.productId = :productId', { productId })
+        .where('inv.product_id = :productId', { productId })
         .getOne();
 
       if (!inv) throw new NotFoundException(`Inventario no encontrado`);

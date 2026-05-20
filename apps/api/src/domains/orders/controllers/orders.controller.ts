@@ -5,8 +5,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { OrdersService }          from '../services/orders.service';
-import { CreateOrderDto, UpdateOrderStatusDto } from '../dto/order.dto';
-import { PaginationDto }          from '../../users/dto/user.dto';
+import { CreateOrderDto, UpdateOrderStatusDto, AdminOrdersFilterDto } from '../dto/order.dto';
 import { JwtAuthGuard }           from '../../../modules/auth/guards/jwt-auth.guard';
 import { RolesGuard }             from '../../../modules/auth/guards/roles.guard';
 import { Roles }                  from '../../../modules/auth/decorators/roles.decorator';
@@ -30,19 +29,19 @@ export class OrdersController {
   }
 
   // ── GET /orders/me — Mis órdenes ──────────────────────────
-  @Get('me')
-  @ApiOperation({ summary: 'Listar mis órdenes' })
-  myOrders(@CurrentUser() user: User, @Query() pagination: PaginationDto) {
-    return this.ordersService.findMyOrders(user.id, pagination);
-  }
+  // @Get('me')
+  // @ApiOperation({ summary: 'Listar mis órdenes' })
+  // myOrders(@CurrentUser() user: User, @Query() pagination: PaginationDto) {
+  //   return this.ordersService.findMyOrders(user.id, pagination);
+  // }
 
   // ── GET /orders — Todas las órdenes (ADMIN) ───────────────
   @Get()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: '[ADMIN] Listar todas las órdenes' })
-  findAll(@Query() pagination: PaginationDto) {
-    return this.ordersService.findAll(pagination);
+  @ApiOperation({ summary: '[ADMIN] Listar órdenes con filtros opcionales' })
+  findAll(@Query() dto: AdminOrdersFilterDto) {
+    return this.ordersService.findAll(dto);
   }
 
   // ── GET /orders/:id — Ver orden ───────────────────────────

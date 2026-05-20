@@ -255,6 +255,45 @@ Los archivos generados: `seed.service.ts`, `seed.controller.ts` y `seed.module.t
 
 ---
 
+### Integración con el agente conversacional (`agent-ecommerce`)
+
+El proyecto cuenta con un asistente conversacional construido en LangGraph/TypeScript que corre como proceso separado. Para que el agente pudiera consultar órdenes reales de TechsStore, necesitaba filtrar por **número de orden**, **email del comprador** y **número de rastreo**, pero el endpoint `GET /api/v1/orders` solo aceptaba `page` y `limit`.
+
+El problema era que el agente nunca maneja UUIDs internos: cuando un cliente dice "¿dónde está mi pedido ORD-20240515-A3K9?" el agente necesita buscar por ese número legible, no por un UUID que el usuario jamás ve. Lo mismo pasa con el rastreo: el `trackingNumber` ya vive dentro de la entidad `Order`, no en un endpoint `/tracking` separado.
+
+La solución fue añadir **tres query params opcionales** al endpoint admin existente, sin crear nuevas rutas. Usé `QueryBuilder` en lugar del `findAndCount` original para poder encadenar filtros condicionales solo cuando el param llega. Sin `QueryBuilder` tendría que haber creado variantes del método o usado condiciones con `undefined` en el `where`, lo cual se vuelve ilegible rápido.
+
+Los archivos modificados fueron:
+
+| Archivo | Cambio |
+|---|---|
+| `orders/dto/order.dto.ts` | Nueva clase `AdminOrdersFilterDto` con `orderNumber?`, `email?`, `trackingNumber?` |
+| `orders/services/orders.service.ts` | `findAll()` migrado a QueryBuilder con filtros condicionales |
+| `orders/controllers/orders.controller.ts` | `GET /orders` ahora recibe `AdminOrdersFilterDto` |
+
+Los nuevos params son todos opcionales, así que el endpoint existente sigue funcionando exactamente igual cuando se llama sin filtros.
+
+Se presentan errores en la integracion del API con el agente conversacional, por lo cual se restructura y se realizan pruebas de ejecucion.
+
+**Errores encontrados en pruebas de integración:**
+
+**Error 1 — `productId must be a UUID` al agregar ítem al carrito**
+
+Al ejecutar `POST /api/v1/cart/items` con un `productId` del seed, el validador rechazaba el request. La causa fue doble: el decorator `@IsUUID()` en `AddToCartDto` valida UUID , pero los IDs del seed usan el formato `b1000000-0000-0000-0000-000000000004` que no cumple la especificación. La solución fue reemplazar `@IsUUID()` por `@IsString()` + `@IsNotEmpty()` en `cart.dto.ts`, manteniendo validación básica sin rechazar los UUIDs secuenciales del seed.
+
+**Error 2 — `column inv.productid does not exist` en reserva de stock**
+
+Una vez resuelto el primer error, el `POST /api/v1/cart/items` devolvía un 500. En el log aparecía:
+```
+WHERE inv.productId = $1
+error: column inv.productid does not exist
+```
+El `InventoryService` usaba `.where('inv.productId = :productId')` en cuatro métodos (`reserve`, `release`, `confirmSale`, `adjust`). PostgreSQL trata los identificadores sin comillas como lowercase, convirtiendo `productId` en `productid`, que no existe — la columna real es `product_id`. La corrección fue cambiar a `.where('inv.product_id = :productId')` en los cuatro lugares.
+
+---
+
+
+
 ## Correr proyecto
 
 ### 1. Instalar dependencias
@@ -282,6 +321,7 @@ docker-compose up postgres redis bull-board -d
 
 npm run start:dev                    # API en localhost:3000
 npm run start:dev:notifications      # Notifications en localhost:4000
+docker-compose up --build -d api     # Cambios solo en la imagen api
 ```
 
 ### 5. Verificar que todo esté corriendo

@@ -10,7 +10,7 @@ import { Order }             from '../entities/order.entity';
 import { OrderItem }         from '../entities/order.entity';
 import { CartService }       from '../../cart/services/cart.service';
 import { InventoryService }  from '../../products/services/inventory.service';
-import { CreateOrderDto, UpdateOrderStatusDto } from '../dto/order.dto';
+import { CreateOrderDto, UpdateOrderStatusDto, AdminOrdersFilterDto } from '../dto/order.dto';
 import { PaginationDto }     from '../../users/dto/user.dto';
 import { JobName, OrderStatus, QueueName, UserRole } from '@shared/enums';
 import { OrderPaidJobData, PaginatedResult } from '@shared/interfaces';
@@ -162,14 +162,21 @@ export class OrdersService {
   }
 
   // ── Listar todas las órdenes (ADMIN) ──────────────────────
-  async findAll(dto: PaginationDto): Promise<PaginatedResult<Order>> {
-    const { page = 1, limit = 10 } = dto;
-    const [data, total] = await this.ordersRepo.findAndCount({
-      order:     { createdAt: 'DESC' },
-      skip:      (page - 1) * limit,
-      take:      limit,
-      relations: ['user', 'items'],
-    });
+  async findAll(dto: AdminOrdersFilterDto): Promise<PaginatedResult<Order>> {
+    const { page = 1, limit = 10, orderNumber, email, trackingNumber } = dto;
+
+    const qb = this.ordersRepo.createQueryBuilder('order')
+      .leftJoinAndSelect('order.user', 'user')
+      .leftJoinAndSelect('order.items', 'items')
+      .orderBy('order.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (orderNumber)    qb.andWhere('order.orderNumber = :orderNumber', { orderNumber });
+    if (email)          qb.andWhere('user.email = :email', { email });
+    if (trackingNumber) qb.andWhere('order.trackingNumber = :trackingNumber', { trackingNumber });
+
+    const [data, total] = await qb.getManyAndCount();
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
