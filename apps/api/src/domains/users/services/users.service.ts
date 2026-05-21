@@ -15,7 +15,7 @@ export class UsersService {
     private readonly usersRepo: Repository<User>,
   ) {}
 
-  // ── Registro ─────────────────────────────────────────────
+  //  Registro
   async create(dto: CreateUserDto): Promise<User> {
     const exists = await this.usersRepo.findOne({ where: { email: dto.email } });
     if (exists) {
@@ -25,7 +25,7 @@ export class UsersService {
     return this.usersRepo.save(user);
   }
 
-  // ── Listado paginado (ADMIN) ──────────────────────────────
+  //  Listado paginado (ADMIN) 
   async findAll(dto: PaginationDto): Promise<PaginatedResult<User>> {
     const { page = 1, limit = 10 } = dto;
     const [data, total] = await this.usersRepo.findAndCount({
@@ -37,19 +37,19 @@ export class UsersService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  // ── Buscar por ID ─────────────────────────────────────────
+  //  Buscar por ID 
   async findById(id: string): Promise<User> {
     const user = await this.usersRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException(`Usuario ${id} no encontrado`);
     return user;
   }
 
-  // ── Buscar por email (usado por Auth) ─────────────────────
+  //  Buscar por email (usado por Auth) 
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepo.findOne({ where: { email } });
   }
 
-  // ── Actualizar perfil ─────────────────────────────────────
+  //  Actualizar perfil 
   async update(id: string, dto: UpdateUserDto): Promise<User> {
     const user = await this.findById(id);
 
@@ -63,7 +63,7 @@ export class UsersService {
     return this.usersRepo.save(user);
   }
 
-  // ── Cambiar rol (solo ADMIN) ──────────────────────────────
+  //  Cambiar rol (solo ADMIN) 
   async changeRole(id: string, dto: ChangeRoleDto, requesterId: string): Promise<User> {
     if (id === requesterId) {
       throw new ForbiddenException('No puedes cambiar tu propio rol');
@@ -73,14 +73,14 @@ export class UsersService {
     return this.usersRepo.save(user);
   }
 
-  // ── Desactivar usuario (soft delete) ─────────────────────
+  //  Desactivar usuario (soft delete) 
   async deactivate(id: string): Promise<void> {
     const user = await this.findById(id);
     user.isActive = false;
     await this.usersRepo.save(user);
   }
 
-  // ── Guardar (uso interno, ej.: refresh token) ─────────────
+  //  Guardar (uso interno, ej.: refresh token) 
   async save(user: User): Promise<User> {
     return this.usersRepo.save(user);
   }

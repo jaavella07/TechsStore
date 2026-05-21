@@ -34,7 +34,7 @@ export class User {
   @Column({ nullable: true, length: 20 })
   phone: string;
 
-  // ─── Relaciones ───────────────────────────────────────────
+  //  Relaciones 
   @OneToMany(() => Order, (order) => order.user)
   orders: Order[];
 
@@ -44,14 +44,14 @@ export class User {
   @OneToMany(() => RefreshToken, (rt) => rt.user, { cascade: true })
   refreshTokens: RefreshToken[];
 
-  // ─── Timestamps ───────────────────────────────────────────
+  //  Timestamps 
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
 
-  // ─── Hooks ───────────────────────────────────────────────
+  //  Hooks 
   @BeforeInsert()
   @BeforeUpdate()
   async hashPassword() {

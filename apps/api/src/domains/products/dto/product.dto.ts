@@ -5,7 +5,7 @@ import {
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 
-// ─── Atributo de producto ──────────────────────────────────────
+//  Atributo de producto 
 export class ProductAttributeDto {
   @ApiProperty({ example: 'Color' })
   @IsString() @MinLength(1) @MaxLength(100)
@@ -16,7 +16,7 @@ export class ProductAttributeDto {
   value: string;
 }
 
-// ─── Crear producto ───────────────────────────────────────────
+//  Crear producto 
 export class CreateProductDto {
   @ApiProperty({ example: 'iPhone 15 Pro Max' })
   @IsString() @MinLength(2) @MaxLength(200)

@@ -19,14 +19,16 @@ import { UserRole } from '@shared/enums';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  // ── Registro público ────────────────────────────────────
+  //  Registro público 
+  
   @Post('register')
   @ApiOperation({ summary: 'Registrar nuevo cliente' })
   create(@Body() dto: CreateUserDto) {
     return this.usersService.create(dto);
   }
 
-  // ── Listado (solo ADMIN) ────────────────────────────────
+  //  Listado (solo ADMIN) 
+  
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -36,7 +38,7 @@ export class UsersController {
     return this.usersService.findAll(pagination);
   }
 
-  // ── Perfil propio ───────────────────────────────────────
+  //  Perfil propio 
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -45,7 +47,7 @@ export class UsersController {
     return this.usersService.findById(user.id);
   }
 
-  // ── Ver un usuario (ADMIN) ──────────────────────────────
+  //  Ver un usuario (ADMIN) 
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -55,7 +57,7 @@ export class UsersController {
     return this.usersService.findById(id);
   }
 
-  // ── Actualizar perfil ───────────────────────────────────
+  //  Actualizar perfil 
   @Patch('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
@@ -64,7 +66,7 @@ export class UsersController {
     return this.usersService.update(user.id, dto);
   }
 
-  // ── Cambiar rol (ADMIN) ──────────────────────────────────
+  //  Cambiar rol (ADMIN) 
   @Patch(':id/role')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
@@ -78,7 +80,7 @@ export class UsersController {
     return this.usersService.changeRole(id, dto, admin.id);
   }
 
-  // ── Desactivar (ADMIN) ───────────────────────────────────
+  //  Desactivar (ADMIN) 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)

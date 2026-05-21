@@ -137,6 +137,17 @@ El manejo de órdenes se realiza bajo los siguientes endpoints:
 | POST | `/orders`            | CLIENT | Crear orden desde carrito   |
 |PATCH | `/orders/:id/status` | ADMIN  | Actualizar estado de orden  |
 
+Ejemplo peticion POST orders
+{
+  "shippingAddress": {
+    "street": "Av. Principal 123",
+    "city": "Bogotá",
+    "state": "Cundinamarca",
+    "country": "CO",
+    "zipCode": "110111"
+  }
+}
+
 ---
 
 ### 5. Pagos
@@ -289,6 +300,35 @@ WHERE inv.productId = $1
 error: column inv.productid does not exist
 ```
 El `InventoryService` usaba `.where('inv.productId = :productId')` en cuatro métodos (`reserve`, `release`, `confirmSale`, `adjust`). PostgreSQL trata los identificadores sin comillas como lowercase, convirtiendo `productId` en `productid`, que no existe — la columna real es `product_id`. La corrección fue cambiar a `.where('inv.product_id = :productId')` en los cuatro lugares.
+
+**Error 3 — `stripe` no reconocido como comando en PowerShell**
+
+Al intentar correr `stripe listen --forward-to localhost:3000/payments/webhook`, PowerShell devolvía:
+```
+stripe : El término 'stripe' no se reconoce como nombre de un cmdlet, función, archivo de script o programa ejecutable.
+```
+La causa fue que la Stripe CLI no estaba instalada en el sistema. La solución fue instalarla vía Scoop:
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+scoop bucket add stripe https://github.com/stripe/scoop-stripe-cli.git
+scoop install stripe
+stripe login   # vincula la cuenta de Stripe una sola vez
+```
+
+**Error 4 — Orden queda en `PENDING` tras pago exitoso en Stripe**
+
+Stripe mostraba `payment_status: "paid"` y `status: "complete"`, pero la orden en la BD seguía en `PENDING` y `stripePaymentIntentId` era `null`. La causa fue que `stripe listen` no estaba corriendo al momento del pago, por lo que el evento `checkout.session.completed` nunca llegó al webhook local. La solución fue levantar el listener **antes** de iniciar el flujo de pago y reenviar el evento perdido:
+```bash
+stripe listen --forward-to localhost:3000/payments/webhook
+stripe events list --limit 5   # obtener el ID del evento
+stripe events resend evt_XXXXXXXX
+```
+El orden correcto de arranque es: `npm run start:dev` → `stripe listen` → generar checkout → pagar.
+
+**Error 5 — `ERR_CONNECTION_REFUSED` en `localhost:4200` tras completar el pago**
+
+Al finalizar el pago en Stripe, el navegador redirigía a `http://localhost:4200/checkout/success?session_id=...` y mostraba error de conexión rechazada. La causa es que no hay frontend corriendo en el puerto 4200 — Stripe redirige al `success_url` configurado al crear la sesión de checkout. Este error es cosmético: no afecta el webhook ni el procesamiento de la orden. En producción el frontend estará levantado y la redirección funcionará correctamente.
 
 ---
 

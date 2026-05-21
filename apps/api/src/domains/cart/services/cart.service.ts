@@ -30,7 +30,7 @@ export class CartService {
     private readonly dataSource:       DataSource,
   ) {}
 
-  // ── Obtener o crear carrito activo ────────────────────────
+  // Obtener o crear carrito activo 
   async getOrCreateCart(userId: string): Promise<Cart> {
     let cart = await this.cartRepo.findOne({
       where:     { user: { id: userId } },
@@ -82,7 +82,7 @@ export class CartService {
     return this.getOrCreateCart(userId);
   }
 
-  // ── Actualizar cantidad de un ítem ────────────────────────
+  //  Actualizar cantidad de un ítem 
   async updateItem(userId: string, itemId: string, dto: UpdateCartItemDto): Promise<Cart> {
     const cart = await this.getOrCreateCart(userId);
     const item = cart.items?.find(i => i.id === itemId);
@@ -106,7 +106,7 @@ export class CartService {
     return this.getOrCreateCart(userId);
   }
 
-  // ── Eliminar ítem del carrito ─────────────────────────────
+  //  Eliminar ítem del carrito 
   async removeItem(userId: string, itemId: string): Promise<Cart> {
     const cart = await this.getOrCreateCart(userId);
     const item = cart.items?.find(i => i.id === itemId);
@@ -121,20 +121,20 @@ export class CartService {
     return this.getOrCreateCart(userId);
   }
 
-  // ── Vaciar carrito completo ────────────────────────────────
+  // Vaciar carrito completo 
   async clearCart(userId: string): Promise<void> {
     const cart = await this.getOrCreateCart(userId);
     await this.releaseCartReservations(cart);
     await this.cartRepo.remove(cart);
   }
 
-  // ── Limpiar carrito TRAS compra exitosa ───────────────────
+  // Limpiar carrito TRAS compra exitosa 
   async removeAfterPurchase(userId: string): Promise<void> {
     const cart = await this.cartRepo.findOne({ where: { user: { id: userId } } });
     if (cart) await this.cartRepo.remove(cart);
   }
 
-  // ── CRON: liberar carritos expirados ─────────────────────
+  // liberar carritos expirados 
   @Cron(CronExpression.EVERY_5_MINUTES)
   async releaseExpiredCarts(): Promise<void> {
     const expiredCarts = await this.cartRepo
@@ -153,19 +153,19 @@ export class CartService {
         await this.releaseCartReservations(cart);
         await this.cartRepo.remove(cart);
       } catch (err) {
-        // this.logger.error(`Error liberando carrito ${cart.id}: ${err.message}`);
+        this.logger.error(`Error liberando carrito ${cart.id}: ${(err as Error).message}`);
       }
     }
   }
 
-  // ── Helper: liberar reservas de un carrito ────────────────
+  // liberar reservas de un carrito 
   async releaseCartReservations(cart: Cart): Promise<void> {
     if (!cart.items?.length) return;
     for (const item of cart.items) {
       try {
         await this.inventoryService.release(item.product.id, item.quantity);
       } catch (err) {
-        // this.logger.warn(`No se pudo liberar reserva item=${item.id}: ${err.message}`);
+        this.logger.warn(`No se pudo liberar reserva item=${item.id}: ${(err as Error).message}`);
       }
     }
   }

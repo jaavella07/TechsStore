@@ -23,7 +23,7 @@ export class ProductsController {
     private readonly inventoryService: InventoryService,
   ) {}
 
-  // ─── PÚBLICAS ────────────────────────────────────────────
+  // PÚBLICAS 
 
   @Get()
   @ApiOperation({ summary: 'Listar productos con filtros y paginación' })
@@ -49,7 +49,7 @@ export class ProductsController {
     return this.productsService.findBySlug(slug);
   }
 
-  // ─── ADMIN ───────────────────────────────────────────────
+  //  ADMIN 
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -82,7 +82,7 @@ export class ProductsController {
     return this.productsService.remove(id);
   }
 
-  // ─── INVENTARIO (ADMIN) ───────────────────────────────────
+  //  INVENTARIO (ADMIN) 
 
   @Get(':id/inventory')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -105,7 +105,7 @@ export class ProductsController {
     return this.inventoryService.adjust(id, dto.quantity, dto.reason);
   }
 
-  // ─── CATEGORÍAS (ADMIN) ───────────────────────────────────
+  //  CATEGORÍAS (ADMIN) 
 
   @Post('categories')
   @UseGuards(JwtAuthGuard, RolesGuard)

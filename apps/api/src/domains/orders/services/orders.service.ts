@@ -35,7 +35,7 @@ export class OrdersService {
     private readonly ordersQueue: Queue,
   ) {}
 
-  // ── Crear orden desde el carrito activo ──────────────────
+  //  Crear orden desde el carrito activo 
   async createFromCart(userId: string, dto: CreateOrderDto): Promise<Order> {
     return this.dataSource.transaction(async (manager) => {
       const cart = await this.cartService.getOrCreateCart(userId);
@@ -77,7 +77,7 @@ export class OrdersService {
     });
   }
 
-  // ── Marcar orden como PAGADA (llamado por webhook) ────────
+  //  Marcar orden como PAGADA (llamado por webhook) 
   async markAsPaid(stripeSessionId: string, paymentIntentId: string): Promise<Order> {
     const order = await this.ordersRepo.findOne({
       where: { stripeSessionId },
@@ -93,12 +93,12 @@ export class OrdersService {
       return order;
     }
 
-    // ── ACCIÓN INMEDIATA: actualizar estado ───────────────
+    //  ACCIÓN INMEDIATA: actualizar estado 
     order.status                = OrderStatus.PAID;
     order.stripePaymentIntentId = paymentIntentId;
     const savedOrder = await this.ordersRepo.save(order);
 
-    // ── ACCIÓN ASÍNCRONA: confirmar stock y disparar cola ─
+    //  ACCIÓN ASÍNCRONA: confirmar stock y disparar cola 
     await this.dataSource.transaction(async (manager) => {
       for (const item of order.items) {
         await this.inventoryService.confirmSale(item.product.id, item.quantity, manager);
@@ -108,7 +108,7 @@ export class OrdersService {
     // Limpiar carrito del usuario (las reservas ya fueron confirmadas)
     await this.cartService.removeAfterPurchase(order.user.id);
 
-    // ── ENCOLAR TAREAS ASÍNCRONAS (BullMQ) ───────────────
+    //  ENCOLAR TAREAS ASÍNCRONAS (BullMQ) 
     const jobData: OrderPaidJobData = {
       orderId:         savedOrder.id,
       userId:          order.user.id,
@@ -126,12 +126,12 @@ export class OrdersService {
     return savedOrder;
   }
 
-  // ── Asignar Stripe Session ID a una orden ─────────────────
+  //  Asignar Stripe Session ID a una orden 
   async attachStripeSession(orderId: string, sessionId: string): Promise<void> {
     await this.ordersRepo.update(orderId, { stripeSessionId: sessionId });
   }
 
-  // ── Listar órdenes del usuario autenticado ────────────────
+  //  Listar órdenes del usuario autenticado 
   async findMyOrders(userId: string, dto: PaginationDto): Promise<PaginatedResult<Order>> {
     const { page = 1, limit = 10 } = dto;
     const [data, total] = await this.ordersRepo.findAndCount({
@@ -144,7 +144,7 @@ export class OrdersService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  // ── Ver detalle de una orden ──────────────────────────────
+  //  Ver detalle de una orden 
   async findOne(orderId: string, userId: string, userRole: UserRole): Promise<Order> {
     const order = await this.ordersRepo.findOne({
       where:     { id: orderId },
@@ -161,7 +161,7 @@ export class OrdersService {
     return order;
   }
 
-  // ── Listar todas las órdenes (ADMIN) ──────────────────────
+  //  Listar todas las órdenes (ADMIN) 
   async findAll(dto: AdminOrdersFilterDto): Promise<PaginatedResult<Order>> {
     const { page = 1, limit = 10, orderNumber, email, trackingNumber } = dto;
 
@@ -180,7 +180,7 @@ export class OrdersService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  // ── Actualizar estado de orden (ADMIN) ────────────────────
+  //  Actualizar estado de orden (ADMIN) 
   async updateStatus(orderId: string, dto: UpdateOrderStatusDto): Promise<Order> {
     const order = await this.ordersRepo.findOne({ where: { id: orderId } });
     if (!order) throw new NotFoundException(`Orden ${orderId} no encontrada`);
@@ -191,12 +191,12 @@ export class OrdersService {
     return this.ordersRepo.save(order);
   }
 
-  // ── Actualizar URL de factura PDF (llamado por procesador) ─
+  //  Actualizar URL de factura PDF (llamado por procesador)
   async updateInvoiceUrl(orderId: string, url: string): Promise<void> {
     await this.ordersRepo.update(orderId, { invoicePdfUrl: url });
   }
 
-  // ── Helper: número de orden legible ──────────────────────
+  //  Helper: número de orden legible 
   private generateOrderNumber(): string {
     const date = new Date();
     const ymd  = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;

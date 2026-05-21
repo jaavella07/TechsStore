@@ -10,7 +10,7 @@ import { Category }          from '../entities/category.entity';
 import { Inventory }         from '../entities/inventory.entity';
 import {
   CreateProductDto, UpdateProductDto,
-  ProductFilterDto, CreateCategoryDto, AdjustStockDto,
+  ProductFilterDto, CreateCategoryDto,
 } from '../dto/product.dto';
 import { PaginatedResult }   from '@shared/interfaces';
 
@@ -31,7 +31,7 @@ export class ProductsService {
     private readonly dataSource: DataSource,
   ) {}
 
-  // ── Crear producto ───────────────────────────────────────
+  //  Crear producto 
   async create(dto: CreateProductDto): Promise<Product> {
     return this.dataSource.transaction(async (manager) => {
       const slug = await this.generateUniqueSlug(dto.name);
@@ -57,7 +57,7 @@ export class ProductsService {
     });
   }
 
-  // ── Listado con filtros ──────────────────────────────────
+  //  Listado con filtros 
   async findAll(filters: ProductFilterDto): Promise<PaginatedResult<Product>> {
     const { page = 1, limit = 12, search, categoryId, brand, minPrice, maxPrice, sortBy } = filters;
 
@@ -94,7 +94,7 @@ export class ProductsService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  // ── Ver producto por ID ──────────────────────────────────
+  //  Ver producto por ID 
   async findById(id: string): Promise<Product> {
     const product = await this.productsRepo.findOne({
       where: { id },
@@ -104,7 +104,7 @@ export class ProductsService {
     return product;
   }
 
-  // ── Ver producto por slug ────────────────────────────────
+  //  Ver producto por slug 
   async findBySlug(slug: string): Promise<Product> {
     const product = await this.productsRepo.findOne({
       where: { slug, isActive: true },
@@ -114,7 +114,7 @@ export class ProductsService {
     return product;
   }
 
-  // ── Actualizar producto ──────────────────────────────────
+  //  Actualizar producto 
   async update(id: string, dto: UpdateProductDto): Promise<Product> {
     const product = await this.findById(id);
 
@@ -130,14 +130,14 @@ export class ProductsService {
     return this.productsRepo.save(product);
   }
 
-  // ── Desactivar producto ──────────────────────────────────
+  //  Desactivar producto 
   async remove(id: string): Promise<void> {
     const product = await this.findById(id);
     product.isActive = false;
     await this.productsRepo.save(product);
   }
 
-  // ── Crear categoría ──────────────────────────────────────
+  //  Crear categoría 
   async createCategory(dto: CreateCategoryDto): Promise<Category> {
     const slug = slugify(dto.name);
     const exists = await this.categoriesRepo.findOne({ where: { slug } });
@@ -151,7 +151,7 @@ export class ProductsService {
     return this.categoriesRepo.save(category);
   }
 
-  // ── Listar categorías ────────────────────────────────────
+  //  Listar categorías 
   async findAllCategories(): Promise<Category[]> {
     return this.categoriesRepo.find({
       where: { isActive: true },
@@ -159,7 +159,7 @@ export class ProductsService {
     });
   }
 
-  // ── Helper: slug único ───────────────────────────────────
+  //  Helper: slug único 
   private async generateUniqueSlug(name: string, excludeId?: string): Promise<string> {
     let slug  = slugify(name);
     let count = 0;
