@@ -4,6 +4,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { PaginationDto } from '../../../common/dto/pagination.dto';
 
 //  Atributo de producto 
 export class ProductAttributeDto {
@@ -108,11 +109,11 @@ export class CreateCategoryDto {
 }
 
 // ─── Filtros de búsqueda ──────────────────────────────────────
-export class ProductFilterDto {
+export class ProductFilterDto extends PaginationDto {
   @ApiPropertyOptional() @IsOptional() @IsString()
   search?: string;
 
-  @ApiPropertyOptional() @IsOptional() @IsUUID()
+  @ApiPropertyOptional() @IsOptional() @IsString()
   categoryId?: string;
 
   @ApiPropertyOptional() @IsOptional() @IsString()
@@ -125,12 +126,6 @@ export class ProductFilterDto {
   @ApiPropertyOptional({ description: 'Precio máximo en centavos' })
   @IsOptional() @IsInt() @Min(0)
   maxPrice?: number;
-
-  @ApiPropertyOptional({ default: 1 }) @IsOptional() @IsInt() @Min(1)
-  page?: number = 1;
-
-  @ApiPropertyOptional({ default: 12 }) @IsOptional() @IsInt() @Min(1) @Max(100)
-  limit?: number = 12;
 
   @ApiPropertyOptional({ enum: ['price_asc', 'price_desc', 'newest', 'name'] })
   @IsOptional() @IsString()

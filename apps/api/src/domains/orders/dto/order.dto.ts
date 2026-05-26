@@ -20,8 +20,8 @@ export class ShippingAddressDto {
   @IsString() @MaxLength(100)
   state: string;
 
-  @ApiProperty({ example: 'MX' })
-  @IsString() @MaxLength(2)
+  @ApiProperty({ example: 'Colombia' })
+  @IsString() @MaxLength(100)
   country: string;
 
   @ApiProperty({ example: '06600' })

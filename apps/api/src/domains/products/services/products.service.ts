@@ -13,6 +13,7 @@ import {
   ProductFilterDto, CreateCategoryDto,
 } from '../dto/product.dto';
 import { PaginatedResult }   from '@shared/interfaces';
+import { PaginationDto } from '../../users/dto/user.dto';
 
 @Injectable()
 export class ProductsService {
@@ -57,9 +58,9 @@ export class ProductsService {
     });
   }
 
-  //  Listado con filtros 
+  //  Listado con filtros
   async findAll(filters: ProductFilterDto): Promise<PaginatedResult<Product>> {
-    const { page = 1, limit = 12, search, categoryId, brand, minPrice, maxPrice, sortBy } = filters;
+    const { offset = 0, limit = 12, search, categoryId, brand, minPrice, maxPrice, sortBy } = filters;
 
     const qb = this.productsRepo
       .createQueryBuilder('p')
@@ -78,19 +79,19 @@ export class ProductsService {
     if (minPrice)    qb.andWhere('p.priceInCents >= :minPrice', { minPrice });
     if (maxPrice)    qb.andWhere('p.priceInCents <= :maxPrice', { maxPrice });
 
-    // Ordenamiento
     switch (sortBy) {
       case 'price_asc':  qb.orderBy('p.priceInCents', 'ASC');  break;
       case 'price_desc': qb.orderBy('p.priceInCents', 'DESC'); break;
       case 'name':       qb.orderBy('p.name', 'ASC');          break;
-      default:           qb.orderBy('p.createdAt', 'DESC');    break; // newest
+      default:           qb.orderBy('p.createdAt', 'DESC');    break;
     }
 
     const [data, total] = await qb
-      .skip((page - 1) * limit)
+      .skip(offset)
       .take(limit)
       .getManyAndCount();
 
+    const page = Math.floor(offset / limit) + 1;
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 

@@ -6,6 +6,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { OrdersService }          from '../services/orders.service';
 import { CreateOrderDto, UpdateOrderStatusDto, AdminOrdersFilterDto } from '../dto/order.dto';
+import { PaginationDto }          from '../../users/dto/user.dto';
 import { JwtAuthGuard }           from '../../../modules/auth/guards/jwt-auth.guard';
 import { RolesGuard }             from '../../../modules/auth/guards/roles.guard';
 import { Roles }                  from '../../../modules/auth/decorators/roles.decorator';
@@ -29,11 +30,11 @@ export class OrdersController {
   }
 
   // ── GET /orders/me — Mis órdenes ──────────────────────────
-  // @Get('me')
-  // @ApiOperation({ summary: 'Listar mis órdenes' })
-  // myOrders(@CurrentUser() user: User, @Query() pagination: PaginationDto) {
-  //   return this.ordersService.findMyOrders(user.id, pagination);
-  // }
+  @Get('me')
+  @ApiOperation({ summary: 'Listar mis órdenes' })
+  myOrders(@CurrentUser() user: User, @Query() pagination: PaginationDto) {
+    return this.ordersService.findMyOrders(user.id, pagination);
+  }
 
   // ── GET /orders — Todas las órdenes (ADMIN) ───────────────
   @Get()
