@@ -163,7 +163,7 @@ export class OrdersService {
 
   //  Listar todas las órdenes (ADMIN) 
   async findAll(dto: AdminOrdersFilterDto): Promise<PaginatedResult<Order>> {
-    const { page = 1, limit = 10, orderNumber, email, trackingNumber } = dto;
+    const { page = 1, limit = 10, orderNumber, email, trackingNumber, status } = dto;
 
     const qb = this.ordersRepo.createQueryBuilder('order')
       .leftJoinAndSelect('order.user', 'user')
@@ -175,6 +175,7 @@ export class OrdersService {
     if (orderNumber)    qb.andWhere('order.orderNumber = :orderNumber', { orderNumber });
     if (email)          qb.andWhere('user.email = :email', { email });
     if (trackingNumber) qb.andWhere('order.trackingNumber = :trackingNumber', { trackingNumber });
+    if (status)         qb.andWhere('order.status = :status', { status });
 
     const [data, total] = await qb.getManyAndCount();
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };

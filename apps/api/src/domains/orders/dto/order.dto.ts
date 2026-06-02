@@ -67,4 +67,8 @@ export class AdminOrdersFilterDto {
   @ApiPropertyOptional({ example: 'MX-DHL-12345' })
   @IsOptional() @IsString()
   trackingNumber?: string;
+
+  @ApiPropertyOptional({ enum: OrderStatus, example: OrderStatus.PENDING })
+  @IsOptional() @IsEnum(OrderStatus)
+  status?: OrderStatus;
 }
