@@ -4,6 +4,9 @@ import { DataSource }       from 'typeorm';
 import * as fs              from 'fs';
 import * as path            from 'path';
 
+import { User }     from '../../domains/users/entities/user.entity';
+import { UserRole } from '@shared/enums';
+
 @Injectable()
 export class SeedService {
   constructor(
@@ -46,6 +49,23 @@ export class SeedService {
       );
     } finally {
       await runner.release();
+    }
+
+    // ── Usuario AGENT (idempotente, usa repo para que @BeforeInsert hashee la password) ──
+    const usersRepo = this.dataSource.getRepository(User);
+    const agentEmail    = process.env.SEED_AGENT_EMAIL    ?? 'agent@techsstore.com';
+    const agentPassword = process.env.SEED_AGENT_PASSWORD ?? 'AgentPass123';
+
+    const existing = await usersRepo.findOne({ where: { email: agentEmail } });
+    if (!existing) {
+      await usersRepo.save(
+        usersRepo.create({
+          name:     'Conversational Agent',
+          email:    agentEmail,
+          password: agentPassword,
+          role:     UserRole.AGENT,
+        }),
+      );
     }
 
     return { message: 'Seed multisector ejecutado exitosamente' };

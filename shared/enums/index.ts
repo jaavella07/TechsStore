@@ -1,7 +1,8 @@
 // ─── Roles de usuario ────────────────────────────────────────
 export enum UserRole {
-  ADMIN = 'ADMIN',
+  ADMIN  = 'ADMIN',
   CLIENT = 'CLIENT',
+  AGENT  = 'AGENT',   // read-only: solo consulta de órdenes y catálogo público
 }
 
 // ─── Estado de la orden ──────────────────────────────────────

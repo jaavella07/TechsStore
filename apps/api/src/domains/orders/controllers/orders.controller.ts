@@ -39,8 +39,8 @@ export class OrdersController {
   // ── GET /orders — Todas las órdenes (ADMIN) ───────────────
   @Get()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: '[ADMIN] Listar órdenes con filtros opcionales' })
+  @Roles(UserRole.ADMIN, UserRole.AGENT)
+  @ApiOperation({ summary: '[ADMIN/AGENT] Listar órdenes con filtros opcionales' })
   findAll(@Query() dto: AdminOrdersFilterDto) {
     return this.ordersService.findAll(dto);
   }
