@@ -7,6 +7,22 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderStatus } from '@shared/enums';
 
 
+// ─── Shape read-only para el rol AGENT (sin PII ni datos financieros) ────────
+export interface AgentOrderItemView {
+  productNameSnapshot: string;
+  quantity:            number;
+  unitPriceInCents:    number;
+}
+
+export interface AgentOrderView {
+  orderNumber:    string;
+  status:         OrderStatus;
+  trackingNumber: string | null;
+  createdAt:      Date;
+  items:          AgentOrderItemView[];
+}
+
+
 export class ShippingAddressDto {
   @ApiProperty({ example: 'Av. Insurgentes Sur 1234' })
   @IsString() @MaxLength(200)

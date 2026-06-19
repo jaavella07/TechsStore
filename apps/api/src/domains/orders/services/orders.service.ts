@@ -10,7 +10,7 @@ import { Order }             from '../entities/order.entity';
 import { OrderItem }         from '../entities/order.entity';
 import { CartService }       from '../../cart/services/cart.service';
 import { InventoryService }  from '../../products/services/inventory.service';
-import { CreateOrderDto, UpdateOrderStatusDto, AdminOrdersFilterDto } from '../dto/order.dto';
+import { CreateOrderDto, UpdateOrderStatusDto, AdminOrdersFilterDto, AgentOrderView } from '../dto/order.dto';
 import { PaginationDto }     from '../../users/dto/user.dto';
 import { JobName, OrderStatus, QueueName, UserRole } from '@shared/enums';
 import { OrderPaidJobData, PaginatedResult } from '@shared/interfaces';
@@ -161,16 +161,24 @@ export class OrdersService {
     return order;
   }
 
-  //  Listar todas las órdenes (ADMIN) 
-  async findAll(dto: AdminOrdersFilterDto): Promise<PaginatedResult<Order>> {
+  //  Listar todas las órdenes (ADMIN completo / AGENT proyectado sin PII)
+  async findAll(
+    dto: AdminOrdersFilterDto,
+    role: UserRole,
+  ): Promise<PaginatedResult<Order | AgentOrderView>> {
     const { page = 1, limit = 10, orderNumber, email, trackingNumber, status } = dto;
+    const isAgent = role === UserRole.AGENT;
 
     const qb = this.ordersRepo.createQueryBuilder('order')
-      .leftJoinAndSelect('order.user', 'user')
       .leftJoinAndSelect('order.items', 'items')
       .orderBy('order.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
+
+    // AGENT: solo join (permite filtrar por email) sin hidratar PII.
+    // ADMIN: join completo con datos del cliente.
+    if (isAgent) qb.leftJoin('order.user', 'user');
+    else         qb.leftJoinAndSelect('order.user', 'user');
 
     if (orderNumber)    qb.andWhere('order.orderNumber = :orderNumber', { orderNumber });
     if (email)          qb.andWhere('user.email = :email', { email });
@@ -178,7 +186,23 @@ export class OrdersService {
     if (status)         qb.andWhere('order.status = :status', { status });
 
     const [data, total] = await qb.getManyAndCount();
-    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+
+    // Proyectar a shape mínimo cuando el llamador es AGENT.
+    const result: (Order | AgentOrderView)[] = isAgent
+      ? data.map<AgentOrderView>(o => ({
+          orderNumber:    o.orderNumber,
+          status:         o.status,
+          trackingNumber: o.trackingNumber ?? null,
+          createdAt:      o.createdAt,
+          items: (o.items ?? []).map(i => ({
+            productNameSnapshot: i.productNameSnapshot,
+            quantity:            i.quantity,
+            unitPriceInCents:    i.unitPriceInCents,
+          })),
+        }))
+      : data;
+
+    return { data: result, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   //  Actualizar estado de orden (ADMIN) 

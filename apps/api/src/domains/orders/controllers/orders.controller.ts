@@ -36,13 +36,13 @@ export class OrdersController {
     return this.ordersService.findMyOrders(user.id, pagination);
   }
 
-  // ── GET /orders — Todas las órdenes (ADMIN) ───────────────
+  // ── GET /orders — Todas las órdenes (ADMIN completo / AGENT proyectado) ──
   @Get()
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.AGENT)
   @ApiOperation({ summary: '[ADMIN/AGENT] Listar órdenes con filtros opcionales' })
-  findAll(@Query() dto: AdminOrdersFilterDto) {
-    return this.ordersService.findAll(dto);
+  findAll(@Query() dto: AdminOrdersFilterDto, @CurrentUser() user: User) {
+    return this.ordersService.findAll(dto, user.role);
   }
 
   // ── GET /orders/:id — Ver orden ───────────────────────────
