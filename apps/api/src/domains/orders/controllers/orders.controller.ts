@@ -5,8 +5,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { OrdersService }          from '../services/orders.service';
-import { CreateOrderDto, UpdateOrderStatusDto, AdminOrdersFilterDto } from '../dto/order.dto';
-import { PaginationDto }          from '../../users/dto/user.dto';
+import { CreateOrderDto, UpdateOrderStatusDto, AdminOrdersFilterDto, MyOrdersFilterDto } from '../dto/order.dto';
 import { JwtAuthGuard }           from '../../../modules/auth/guards/jwt-auth.guard';
 import { RolesGuard }             from '../../../modules/auth/guards/roles.guard';
 import { Roles }                  from '../../../modules/auth/decorators/roles.decorator';
@@ -31,9 +30,9 @@ export class OrdersController {
 
   // ── GET /orders/me — Mis órdenes ──────────────────────────
   @Get('me')
-  @ApiOperation({ summary: 'Listar mis órdenes' })
-  myOrders(@CurrentUser() user: User, @Query() pagination: PaginationDto) {
-    return this.ordersService.findMyOrders(user.id, pagination);
+  @ApiOperation({ summary: 'Listar mis órdenes (acepta ?status=PAID|PENDING|...)' })
+  myOrders(@CurrentUser() user: User, @Query() dto: MyOrdersFilterDto) {
+    return this.ordersService.findMyOrders(user.id, dto);
   }
 
   // ── GET /orders — Todas las órdenes (ADMIN completo / AGENT proyectado) ──

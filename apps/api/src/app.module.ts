@@ -1,7 +1,9 @@
 import { Module }          from '@nestjs/common';
+import { APP_GUARD }       from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule }   from '@nestjs/typeorm';
 import { BullModule }      from '@nestjs/bullmq';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 
 import { UsersModule }     from './domains/users/users.module';
 import { ProductsModule }  from './domains/products/products.module';
@@ -18,6 +20,9 @@ import { SnakeNamingStrategy }   from './common/snake-naming.strategy';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
+
+    // B4 — Rate-limiting global (60 req/min). Rutas de auth tienen límite propio más estricto.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
 
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -67,5 +72,9 @@ import { SnakeNamingStrategy }   from './common/snake-naming.strategy';
     SeedModule,
   ],
   controllers: [HealthController],
+  providers: [
+    // B4 — Guard global de throttling
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}

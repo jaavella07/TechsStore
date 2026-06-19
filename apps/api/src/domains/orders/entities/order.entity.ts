@@ -54,7 +54,7 @@ export class Order {
   @JoinColumn()
   user: User;
 
-  @OneToMany(() => OrderItem, (item) => item.order, { cascade: true, eager: true })
+  @OneToMany(() => OrderItem, (item) => item.order, { cascade: true })
   items: OrderItem[];
 
   @CreateDateColumn() createdAt: Date;
@@ -81,7 +81,7 @@ export class OrderItem {
   @ManyToOne(() => Order, (o) => o.items, { onDelete: 'CASCADE' })
   order: Order;
 
-  @ManyToOne(() => Product, { eager: true, nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => Product, { nullable: true, onDelete: 'SET NULL' })
   product: Product;
 
   get subtotalInCents(): number {

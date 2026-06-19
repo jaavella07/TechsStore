@@ -10,8 +10,7 @@ import { Order }             from '../entities/order.entity';
 import { OrderItem }         from '../entities/order.entity';
 import { CartService }       from '../../cart/services/cart.service';
 import { InventoryService }  from '../../products/services/inventory.service';
-import { CreateOrderDto, UpdateOrderStatusDto, AdminOrdersFilterDto, AgentOrderView } from '../dto/order.dto';
-import { PaginationDto }     from '../../users/dto/user.dto';
+import { CreateOrderDto, UpdateOrderStatusDto, AdminOrdersFilterDto, MyOrdersFilterDto, AgentOrderView } from '../dto/order.dto';
 import { JobName, OrderStatus, QueueName, UserRole } from '@shared/enums';
 import { OrderPaidJobData, PaginatedResult } from '@shared/interfaces';
 
@@ -131,25 +130,34 @@ export class OrdersService {
     await this.ordersRepo.update(orderId, { stripeSessionId: sessionId });
   }
 
-  //  Listar órdenes del usuario autenticado 
-  async findMyOrders(userId: string, dto: PaginationDto): Promise<PaginatedResult<Order>> {
-    const { page = 1, limit = 10 } = dto;
+  //  Listar órdenes del usuario autenticado
+  async findMyOrders(userId: string, dto: MyOrdersFilterDto): Promise<PaginatedResult<Order>> {
+    const { page = 1, limit = 10, status } = dto;
+    const where: Record<string, unknown> = { user: { id: userId } };
+    if (status) where['status'] = status;
+
     const [data, total] = await this.ordersRepo.findAndCount({
-      where:   { user: { id: userId } },
+      where,
       order:   { createdAt: 'DESC' },
       skip:    (page - 1) * limit,
       take:    limit,
-      relations: ['items'],
+      // Cargar imágenes de producto por defecto (evita render roto si la UI las muestra)
+      relations: ['items', 'items.product', 'items.product.images'],
     });
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  //  Ver detalle de una orden 
+  //  Ver detalle de una orden
   async findOne(orderId: string, userId: string, userRole: UserRole): Promise<Order> {
-    const order = await this.ordersRepo.findOne({
-      where:     { id: orderId },
-      relations: ['user', 'items', 'items.product'],
-    });
+    const order = await this.ordersRepo.createQueryBuilder('order')
+      .leftJoinAndSelect('order.items',          'items')
+      .leftJoinAndSelect('items.product',        'product')
+      .leftJoinAndSelect('product.images',       'pImages')
+      // B2: proyección mínima de usuario (sin PII innecesaria)
+      .leftJoin('order.user', 'user')
+      .addSelect(['user.id', 'user.name', 'user.email'])
+      .where('order.id = :id', { id: orderId })
+      .getOne();
 
     if (!order) throw new NotFoundException(`Orden ${orderId} no encontrada`);
 
@@ -169,23 +177,48 @@ export class OrdersService {
     const { page = 1, limit = 10, orderNumber, email, trackingNumber, status } = dto;
     const isAgent = role === UserRole.AGENT;
 
-    const qb = this.ordersRepo.createQueryBuilder('order')
-      .leftJoinAndSelect('order.items', 'items')
+    // ── Paso 1: contar con filtros (sin joins pesados) ────────
+    const countQb = this.ordersRepo.createQueryBuilder('order');
+    if (email) countQb.leftJoin('order.user', 'user');
+    if (orderNumber)    countQb.andWhere('order.orderNumber = :orderNumber', { orderNumber });
+    if (email)          countQb.andWhere('user.email = :email', { email });
+    if (trackingNumber) countQb.andWhere('order.trackingNumber = :trackingNumber', { trackingNumber });
+    if (status)         countQb.andWhere('order.status = :status', { status });
+
+    const total      = await countQb.getCount();
+    const totalPages = Math.ceil(total / limit);
+
+    if (total === 0) return { data: [], total, page, limit, totalPages };
+
+    // ── Paso 2: IDs paginados ──────────────────────────────────
+    // Seleccionar también createdAt para que el ORDER BY no genere SELECT DISTINCT inválido
+    // cuando el filtro email añade un JOIN (Postgres exige ORDER BY en el SELECT si hay DISTINCT)
+    const idsQb = this.ordersRepo.createQueryBuilder('order')
+      .select(['order.id', 'order.createdAt'])
       .orderBy('order.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
+    if (email) idsQb.leftJoin('order.user', 'user');
+    if (orderNumber)    idsQb.andWhere('order.orderNumber = :orderNumber', { orderNumber });
+    if (email)          idsQb.andWhere('user.email = :email', { email });
+    if (trackingNumber) idsQb.andWhere('order.trackingNumber = :trackingNumber', { trackingNumber });
+    if (status)         idsQb.andWhere('order.status = :status', { status });
 
-    // AGENT: solo join (permite filtrar por email) sin hidratar PII.
-    // ADMIN: join completo con datos del cliente.
-    if (isAgent) qb.leftJoin('order.user', 'user');
-    else         qb.leftJoinAndSelect('order.user', 'user');
+    const ids = (await idsQb.getMany()).map(o => o.id);
+    if (!ids.length) return { data: [], total, page, limit, totalPages };
 
-    if (orderNumber)    qb.andWhere('order.orderNumber = :orderNumber', { orderNumber });
-    if (email)          qb.andWhere('user.email = :email', { email });
-    if (trackingNumber) qb.andWhere('order.trackingNumber = :trackingNumber', { trackingNumber });
-    if (status)         qb.andWhere('order.status = :status', { status });
+    // ── Paso 3: hidratar relaciones para esos IDs ─────────────
+    const dataQb = this.ordersRepo.createQueryBuilder('order')
+      .leftJoinAndSelect('order.items', 'items')
+      .where('order.id IN (:...ids)', { ids })
+      .orderBy('order.createdAt', 'DESC');
 
-    const [data, total] = await qb.getManyAndCount();
+    // AGENT: sin datos de usuario. ADMIN: proyección mínima {id, name, email} (B2).
+    if (!isAgent) {
+      dataQb.leftJoin('order.user', 'user').addSelect(['user.id', 'user.name', 'user.email']);
+    }
+
+    const data = await dataQb.getMany();
 
     // Proyectar a shape mínimo cuando el llamador es AGENT.
     const result: (Order | AgentOrderView)[] = isAgent
@@ -202,7 +235,7 @@ export class OrdersService {
         }))
       : data;
 
-    return { data: result, total, page, limit, totalPages: Math.ceil(total / limit) };
+    return { data: result, total, page, limit, totalPages };
   }
 
   //  Actualizar estado de orden (ADMIN) 

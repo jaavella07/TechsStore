@@ -1,6 +1,7 @@
 import {
   Controller, Post, Body, UseGuards, HttpCode, HttpStatus, Get,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
 import { AuthService }        from './auth.service';
@@ -20,6 +21,7 @@ export class AuthController {
 
   // ── POST /auth/register ───────────────────────────────────
   @Post('register')
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @ApiOperation({ summary: 'Registrar nuevo usuario y obtener tokens' })
   register(@Body() dto: CreateUserDto) {
     return this.authService.register(dto);
@@ -27,6 +29,7 @@ export class AuthController {
 
   // ── POST /auth/login ──────────────────────────────────────
   @Post('login')
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Iniciar sesión — devuelve accessToken + refreshToken' })
   login(@Body() dto: LoginDto) {

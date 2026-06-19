@@ -32,7 +32,7 @@ export class AuthService {
     const user   = await this.usersService.create(dto);
     const tokens = await this.generateTokens(user);
     await this.storeRefreshToken(user, tokens.refreshToken);
-    return { user, ...tokens };
+    return { user: this.sanitizeUser(user), ...tokens };
   }
 
   // ── Login ────────────────────────────────────────────────
@@ -40,7 +40,7 @@ export class AuthService {
     const user = await this.validateUser(dto.email, dto.password);
     const tokens = await this.generateTokens(user);
     await this.storeRefreshToken(user, tokens.refreshToken);
-    return { user, ...tokens };
+    return { user: this.sanitizeUser(user), ...tokens };
   }
 
   // ── Refresh tokens ───────────────────────────────────────
@@ -125,5 +125,10 @@ export class AuthService {
   // ── Revocar todos los tokens del usuario ─────────────────
   private async revokeAllUserTokens(userId: string): Promise<void> {
     await this.rtRepo.update({ user: { id: userId }, revoked: false }, { revoked: true });
+  }
+
+  // ── Proyección mínima de usuario para respuestas públicas ─
+  private sanitizeUser(user: User) {
+    return { id: user.id, name: user.name, email: user.email, role: user.role };
   }
 }

@@ -5,6 +5,7 @@ import {
 import { Type }         from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderStatus } from '@shared/enums';
+import { PaginationDto } from '../../users/dto/user.dto';
 
 
 // ─── Shape read-only para el rol AGENT (sin PII ni datos financieros) ────────
@@ -61,6 +62,13 @@ export class UpdateOrderStatusDto {
   @IsOptional()
   @IsString()
   trackingNumber?: string;
+}
+
+// ─── DTO para el filtro de /orders/me (cliente) ───────────────────────────────
+export class MyOrdersFilterDto extends PaginationDto {
+  @ApiPropertyOptional({ enum: OrderStatus, example: OrderStatus.PENDING })
+  @IsOptional() @IsEnum(OrderStatus)
+  status?: OrderStatus;
 }
 
 export class AdminOrdersFilterDto {

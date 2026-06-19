@@ -34,7 +34,7 @@ export class CartService {
   async getOrCreateCart(userId: string): Promise<Cart> {
     let cart = await this.cartRepo.findOne({
       where:     { user: { id: userId } },
-      relations: ['items', 'items.product', 'items.product.inventories'],
+      relations: ['items', 'items.product', 'items.product.images', 'items.product.inventories'],
       order:     { createdAt: 'DESC' },
     });
 

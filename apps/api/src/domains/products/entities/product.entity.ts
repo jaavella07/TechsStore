@@ -46,10 +46,10 @@ export class Product {
   @JoinColumn()
   category: Category;
 
-  @OneToMany(() => ProductAttribute, (a) => a.product, { cascade: true, eager: true })
+  @OneToMany(() => ProductAttribute, (a) => a.product, { cascade: true })
   attributes: ProductAttribute[];
 
-  @OneToMany(() => ProductImage, (i) => i.product, { cascade: true, eager: true })
+  @OneToMany(() => ProductImage, (i) => i.product, { cascade: true })
   images: ProductImage[];
 
   @OneToMany(() => Inventory, (inv) => inv.product, { cascade: true })

@@ -58,41 +58,60 @@ export class ProductsService {
     });
   }
 
-  //  Listado con filtros
+  //  Listado con filtros (paginación en dos pasos para evitar N+1 con joins one-to-many)
   async findAll(filters: ProductFilterDto): Promise<PaginatedResult<Product>> {
     const { offset = 0, limit = 12, search, categoryId, brand, minPrice, maxPrice, sortBy } = filters;
 
-    const qb = this.productsRepo
-      .createQueryBuilder('p')
-      .leftJoinAndSelect('p.category',   'category')
-      .leftJoinAndSelect('p.images',     'images')
-      .leftJoinAndSelect('p.inventories','inv')
-      .where('p.isActive = true');
+    const applyFilters = (qb: ReturnType<typeof this.productsRepo.createQueryBuilder>) => {
+      qb.where('p.isActive = true');
+      // Filtrar por FK directa evita JOIN en la query de IDs → sin SELECT DISTINCT → SQL válido
+      if (categoryId) qb.andWhere('p.category_id = :categoryId', { categoryId });
+      if (search)     qb.andWhere('(p.name ILIKE :search OR p.description ILIKE :search OR p.brand ILIKE :search)', { search: `%${search}%` });
+      if (brand)      qb.andWhere('p.brand ILIKE :brand', { brand: `%${brand}%` });
+      if (minPrice)   qb.andWhere('p.priceInCents >= :minPrice', { minPrice });
+      if (maxPrice)   qb.andWhere('p.priceInCents <= :maxPrice', { maxPrice });
+      return qb;
+    };
 
-    if (search) {
-      qb.andWhere('(p.name ILIKE :search OR p.description ILIKE :search OR p.brand ILIKE :search)', {
-        search: `%${search}%`,
-      });
-    }
-    if (categoryId)  qb.andWhere('category.id = :categoryId', { categoryId });
-    if (brand)       qb.andWhere('p.brand ILIKE :brand', { brand: `%${brand}%` });
-    if (minPrice)    qb.andWhere('p.priceInCents >= :minPrice', { minPrice });
-    if (maxPrice)    qb.andWhere('p.priceInCents <= :maxPrice', { maxPrice });
+    const applySort = (qb: ReturnType<typeof this.productsRepo.createQueryBuilder>) => {
+      switch (sortBy) {
+        case 'price_asc':  return qb.orderBy('p.priceInCents', 'ASC');
+        case 'price_desc': return qb.orderBy('p.priceInCents', 'DESC');
+        case 'name':       return qb.orderBy('p.name', 'ASC');
+        default:           return qb.orderBy('p.createdAt', 'DESC');
+      }
+    };
 
-    switch (sortBy) {
-      case 'price_asc':  qb.orderBy('p.priceInCents', 'ASC');  break;
-      case 'price_desc': qb.orderBy('p.priceInCents', 'DESC'); break;
-      case 'name':       qb.orderBy('p.name', 'ASC');          break;
-      default:           qb.orderBy('p.createdAt', 'DESC');    break;
-    }
+    // ── Paso 1: contar ────────────────────────────────────────
+    const total      = await applyFilters(this.productsRepo.createQueryBuilder('p')).getCount();
+    const page       = Math.floor(offset / limit) + 1;
+    const totalPages = Math.ceil(total / limit);
 
-    const [data, total] = await qb
-      .skip(offset)
-      .take(limit)
-      .getManyAndCount();
+    if (total === 0) return { data: [], total, page, limit, totalPages };
 
-    const page = Math.floor(offset / limit) + 1;
-    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+    // ── Paso 2: IDs paginados (sin joins de imágenes/inventarios) ──
+    const ids = (
+      await applySort(
+        applyFilters(this.productsRepo.createQueryBuilder('p').select('p.id')),
+      )
+        .skip(offset)
+        .take(limit)
+        .getMany()
+    ).map(p => p.id);
+
+    if (!ids.length) return { data: [], total, page, limit, totalPages };
+
+    // ── Paso 3: hidratar relaciones para esos IDs ─────────────
+    // attributes no se incluye en el listado (solo en findById/findBySlug)
+    const data = await applySort(
+      this.productsRepo.createQueryBuilder('p')
+        .leftJoinAndSelect('p.category',    'category')
+        .leftJoinAndSelect('p.images',      'images')
+        .leftJoinAndSelect('p.inventories', 'inv')
+        .where('p.id IN (:...ids)', { ids }),
+    ).getMany();
+
+    return { data, total, page, limit, totalPages };
   }
 
   //  Ver producto por ID 
