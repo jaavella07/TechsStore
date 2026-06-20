@@ -5,7 +5,7 @@ import {
 import { Type }         from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderStatus } from '@shared/enums';
-import { PaginationDto } from '../../users/dto/user.dto';
+import { PaginationDto } from '../../../common/dto/pagination.dto';
 
 
 // ─── Shape read-only para el rol AGENT (sin PII ni datos financieros) ────────

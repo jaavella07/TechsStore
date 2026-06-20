@@ -4,7 +4,8 @@ import {
 import { InjectRepository }          from '@nestjs/typeorm';
 import { Repository }                from 'typeorm';
 import { User }                      from '../entities/user.entity';
-import { CreateUserDto, UpdateUserDto, ChangeRoleDto, PaginationDto } from '../dto/user.dto';
+import { CreateUserDto, UpdateUserDto, ChangeRoleDto } from '../dto/user.dto';
+import { PaginationDto } from '../../../common/dto/pagination.dto';
 import { PaginatedResult } from '@shared/interfaces';
 
 

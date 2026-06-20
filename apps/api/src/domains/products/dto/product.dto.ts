@@ -4,7 +4,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { PaginationDto } from '../../../common/dto/pagination.dto';
+import { OffsetPaginationDto } from '../../../common/dto/pagination.dto';
 
 //  Atributo de producto 
 export class ProductAttributeDto {
@@ -109,7 +109,7 @@ export class CreateCategoryDto {
 }
 
 // ─── Filtros de búsqueda ──────────────────────────────────────
-export class ProductFilterDto extends PaginationDto {
+export class ProductFilterDto extends OffsetPaginationDto {
   @ApiPropertyOptional() @IsOptional() @IsString()
   search?: string;
 

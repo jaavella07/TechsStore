@@ -5,7 +5,8 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { UsersService }               from '../services/users.service';
-import { CreateUserDto, UpdateUserDto, ChangeRoleDto, PaginationDto } from '../dto/user.dto';
+import { CreateUserDto, UpdateUserDto, ChangeRoleDto } from '../dto/user.dto';
+import { PaginationDto } from '../../../common/dto/pagination.dto';
 import { JwtAuthGuard }               from '../../../modules/auth/guards/jwt-auth.guard';
 import { RolesGuard }                 from '../../../modules/auth/guards/roles.guard';
 import { Roles }                      from '../../../modules/auth/decorators/roles.decorator';

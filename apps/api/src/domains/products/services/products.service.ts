@@ -13,7 +13,6 @@ import {
   ProductFilterDto, CreateCategoryDto,
 } from '../dto/product.dto';
 import { PaginatedResult }   from '@shared/interfaces';
-import { PaginationDto } from '../../users/dto/user.dto';
 
 @Injectable()
 export class ProductsService {

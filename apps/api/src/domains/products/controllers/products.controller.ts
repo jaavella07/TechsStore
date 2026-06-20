@@ -14,7 +14,6 @@ import { JwtAuthGuard }       from '../../../modules/auth/guards/jwt-auth.guard'
 import { RolesGuard }         from '../../../modules/auth/guards/roles.guard';
 import { Roles }              from '../../../modules/auth/decorators/roles.decorator';
 import { UserRole }           from '@shared/enums';
-import { PaginationDto } from '../../users/dto/user.dto';
 
 @ApiTags('Products')
 @Controller('products')

@@ -41,19 +41,24 @@ Estos módulos cuentan con la configuración de registro, acceso, validación, r
 
   - ADMIN
   - CLIENT
+  - AGENT (solo lectura de órdenes proyectadas sin PII)
 
 El manejo de usuarios se realiza bajo los siguientes endpoints:
 
 | Método | Ruta | Rol | Descripción |
 |--------|------|-----|-------------|
-| POST | `/auth/register`  | Público | Registrar usuario          | 
-| POST | `/auth/login`     | Público | Iniciar sesión             |
-| POST | `/auth/refresh`   | Público | Renovar access token       |
-| POST | `/users/register` | Público | Registrar usuario publico  |
-| GET  | `/users`          | ADMIN   | ver listado de usuario     |
-| GET  | `/users/:id`      | ADMIN   | ver un usuario por ID      |
-|PATCH | `/users/:id/role` | ADMIN   | cambiar rol por ID         |
-|DELETE| `/users/:id`      | ADMIN   | Desactivar usuario por ID  |
+| POST   | `/auth/register`   | Público     | Registrar usuario y obtener tokens    |
+| POST   | `/auth/login`      | Público     | Iniciar sesión                        |
+| POST   | `/auth/refresh`    | Público     | Renovar access token                  |
+| POST   | `/auth/logout`     | Autenticado | Revocar todos los refresh tokens      |
+| GET    | `/auth/me`         | Autenticado | Verificar token y obtener usuario     |
+| POST   | `/users/register`  | Público     | Registrar cliente sin tokens          |
+| GET    | `/users`           | ADMIN       | Listar usuarios paginados             |
+| GET    | `/users/me`        | Autenticado | Ver mi perfil                         |
+| GET    | `/users/:id`       | ADMIN       | Ver usuario por ID                    |
+| PATCH  | `/users/me`        | Autenticado | Actualizar mi perfil                  |
+| PATCH  | `/users/:id/role`  | ADMIN       | Cambiar rol por ID                    |
+| DELETE | `/users/:id`       | ADMIN       | Desactivar usuario (soft delete)      |
 
 ---
 
@@ -77,15 +82,16 @@ El manejo de productos se realiza bajo los siguientes endpoint:
 
 | Método | Ruta | Rol | Descripción |
 |--------|------|-----|-------------|
-| GET  | `/products`                      | Público | Listar productos con filtros   |
-| GET  | `/products/:id`                  | Público | Listar productos por ID        |
-| GET  | `/products/categories`           | Público | Ver detalles del producto      |
-| POST | `/products`                      | ADMIN   | Crear producto                 |
-|PATCH | `/products/:id`                  | ADMIN   | Actualizar producto            |
-|DELETE| `/products/:id`                  | ADMIN   | Desactivar producto por ID     |
-| GET  | `/products/:id/inventory`        | ADMIN   | Ver inventario de un producto  |
-|PATCH | `/products/:id/inventory/adjust` | ADMIN   | Ajuste manual de stock         |
-|POST  | `/products/categories`           | ADMIN   | Crear categoria                |
+| GET    | `/products`                      | Público | Listar con filtros y paginación (`search`, `categoryId`, `brand`, `minPrice`, `maxPrice`, `sortBy`, `offset`, `limit`) |
+| GET    | `/products/categories`           | Público | Listar categorías activas con sus hijos |
+| GET    | `/products/:id`                  | Público | Ver detalle de producto por ID          |
+| GET    | `/products/slug/:slug`           | Público | Ver detalle de producto por slug        |
+| POST   | `/products`                      | ADMIN   | Crear producto con stock inicial        |
+| PATCH  | `/products/:id`                  | ADMIN   | Actualizar producto                     |
+| DELETE | `/products/:id`                  | ADMIN   | Desactivar producto (soft delete)       |
+| GET    | `/products/:id/inventory`        | ADMIN   | Ver inventario de un producto           |
+| PATCH  | `/products/:id/inventory/adjust` | ADMIN   | Ajuste manual de stock (+/-)            |
+| POST   | `/products/categories`           | ADMIN   | Crear categoría                         |
 ---
 
 ### 3. Carrito
@@ -133,9 +139,11 @@ El manejo de órdenes se realiza bajo los siguientes endpoints:
 
 | Método | Ruta | Rol | Descripción |
 |--------|------|-----|-------------|
-| GET  | `/orders/me`         | CLIENT | Mis órdenes                 |
-| POST | `/orders`            | CLIENT | Crear orden desde carrito   |
-|PATCH | `/orders/:id/status` | ADMIN  | Actualizar estado de orden  |
+| POST   | `/orders`                    | CLIENT       | Crear orden desde el carrito activo                                    |
+| GET    | `/orders/me`                 | CLIENT       | Mis órdenes — acepta `?status=PAID\|PENDING\|…`, `?page`, `?limit`    |
+| GET    | `/orders`                    | ADMIN, AGENT | Listar todas — `?orderNumber`, `?email`, `?trackingNumber`, `?status` |
+| GET    | `/orders/:id`                | Autenticado  | Detalle de orden (CLIENT solo ve las propias; ADMIN ve cualquiera)     |
+| PATCH  | `/orders/:id/status`         | ADMIN        | Cambiar estado y asignar número de rastreo                             |
 
 Ejemplo peticion POST orders
 {
@@ -284,13 +292,15 @@ Los archivos modificados fueron:
 
 Los nuevos params son todos opcionales, así que el endpoint existente sigue funcionando exactamente igual cuando se llama sin filtros.
 
-Se presentan errores en la integracion del API con el agente conversacional, por lo cual se restructura y se realizan pruebas de ejecucion.
+La integración del API con el agente conversacional requirió ajustes adicionales de calidad en el backend, documentados en la siguiente sección.
 
 **Errores encontrados en pruebas de integración:**
 
 **Error 1 — `productId must be a UUID` al agregar ítem al carrito**
 
-Al ejecutar `POST /api/v1/cart/items` con un `productId` del seed, el validador rechazaba el request. La causa fue doble: el decorator `@IsUUID()` en `AddToCartDto` valida UUID , pero los IDs del seed usan el formato `b1000000-0000-0000-0000-000000000004` que no cumple la especificación. La solución fue reemplazar `@IsUUID()` por `@IsString()` + `@IsNotEmpty()` en `cart.dto.ts`, manteniendo validación básica sin rechazar los UUIDs secuenciales del seed.
+Al ejecutar `POST /api/v1/cart/items` con un `productId` del seed, el validador rechazaba el request. La causa: `@IsUUID()` (Stream B — B5) exige que el UUID cumpla la especificación RFC 4122, con dígito de versión `[1-8]` y variante `[89ab]`. Los IDs hardcodeados del seed (`b1000000-0000-0000-0000-000000000001`) tenían versión `0` y variante `0`, que Postgres acepta pero `class-validator` rechaza.
+
+La solución fue **corregir los UUID en `seed-multisector.sql`**: reemplazo global de `-0000-0000-0000-` → `-0000-4000-8000-` (versión 4 + variante RFC 4122), aplicado en las 237 ocurrencias del archivo (categorías, closure, productos, atributos, imágenes e inventario). La integridad referencial se preserva sola porque PKs y FKs usaban el mismo patrón. La validación `@IsUUID()` en el DTO se mantiene como protección real de entrada.
 
 **Error 2 — `column inv.productid does not exist` en reserva de stock**
 
@@ -332,7 +342,104 @@ Al finalizar el pago en Stripe, el navegador redirigía a `http://localhost:4200
 
 ---
 
+### 8. Calidad de endpoints
 
+Tras integrar el agente conversacional se identificaron y corrigieron problemas de calidad en los endpoints del backend.
+
+**B1 — Eliminar eager loading y N+1**
+
+Se removió `eager: true` de `Order.items`, `OrderItem.product`, `Product.attributes` y `Product.images`. Las relaciones ahora se cargan solo donde se usan. Adicionalmente, `products.findAll` y `orders.findAll` usan paginación en dos pasos (count → IDs paginados → hydrate) para evitar el bug de `SELECT DISTINCT / ORDER BY` que Postgres rechaza cuando se combina JOIN + skip/take en la misma query.
+
+**B2 — Proyección de usuario en órdenes**
+
+Las respuestas de órdenes ya no incluían el objeto `User` completo (con password hasheado y tokens). `orders.findOne` y `orders.findAll` proyectan solo `{id, name, email}` via `addSelect`. `auth.register` y `auth.login` retornan el usuario saneado con `sanitizeUser()`.
+
+**B3 — Filtro por estado en /orders/me**
+
+`GET /orders/me` acepta ahora `?status=PAID|PENDING|PROCESSING|…` como query param opcional. `MyOrdersFilterDto` extiende `PaginationDto` y añade el campo `status`.
+
+**B4 — Rate limiting**
+
+`ThrottlerModule` configurado globalmente (60 req/min). Los endpoints de registro e inicio de sesión tienen un límite más estricto de 5 req/min con `@Throttle({ default: { ttl: 60_000, limit: 5 } })`.
+
+**B5 — Validación UUID en carrito**
+
+`AddToCartDto.productId` valida con `@IsUUID()` en lugar de `@IsString()`. Ver Error 1 arriba para el fix asociado en el seed.
+
+**PaginationDto unificado**
+
+Existían dos clases `PaginationDto` en distintos lugares del proyecto. Se consolidaron en `apps/api/src/common/dto/pagination.dto.ts`:
+- `PaginationDto` — `{page, limit}` — usada por orders y users
+- `OffsetPaginationDto` — `{offset, limit}` — usada por products (`ProductFilterDto`)
+
+---
+
+### 9. Rutas del agente conversacional
+
+El agente conversacional no es un usuario humano: es un proceso LangGraph que hace llamadas HTTP a la API para responder preguntas del cliente. Eso implicó una decisión de diseño que no tuve que tomar en ningún módulo anterior — **¿qué puede ver el agente y qué no?**
+
+La respuesta la tiene el rol `AGENT`. El agente necesita saber si un pedido existe, cuál es su estado y si tiene número de rastreo. No necesita ver el email del comprador, su nombre completo ni ningún dato personal. Exponerlos sería innecesario y un riesgo de privacidad. Por eso `GET /orders` devuelve dos shapes distintos según quién llame:
+
+- Si llama **ADMIN**: recibe la orden completa con `user: {id, name, email}`.
+- Si llama **AGENT**: recibe `AgentOrderView`, una proyección que omite cualquier dato de usuario y solo trae lo operativo: `orderNumber`, `status`, `trackingNumber`, `createdAt` y los ítems con `productNameSnapshot`, `quantity` y `unitPriceInCents`.
+
+El agente se crea automáticamente al correr el seed con las credenciales `agent@techsstore.com / AgentPass123` (configurables vía `SEED_AGENT_EMAIL` / `SEED_AGENT_PASSWORD`). Su flujo de autenticación es idéntico al de cualquier usuario: hace `POST /auth/login` en el primer request, cachea el `accessToken` y usa `POST /auth/refresh` cuando recibe un 401.
+
+**Rutas accesibles por el rol AGENT:**
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST   | `/auth/login`   | Obtener tokens (primera vez o tras expiración)                        |
+| POST   | `/auth/refresh` | Renovar access token con el refresh token                             |
+| POST   | `/auth/logout`  | Revocar sesión                                                        |
+| GET    | `/auth/me`      | Verificar que el token sigue válido                                   |
+| GET    | `/orders`       | Consultar órdenes — respuesta proyectada sin PII (ver tabla abajo)    |
+| GET    | `/products`     | Buscar productos por `search`, `categoryId`, `brand`, `minPrice`, etc.|
+| GET    | `/products/categories` | Listar categorías (para recomendaciones por sector)            |
+| GET    | `/products/:id` | Ver detalle de un producto por ID                                     |
+| GET    | `/products/slug/:slug` | Ver detalle de un producto por slug                            |
+
+**Rutas bloqueadas para AGENT (acceso denegado):**
+
+| Ruta | Motivo |
+|------|--------|
+| `GET /orders/:id`       | Solo ADMIN o el CLIENT dueño de la orden pueden ver el detalle |
+| `GET /orders/me`        | Devuelve las órdenes propias — el agente no compra             |
+| `POST /orders`          | El agente no crea órdenes                                      |
+| `PATCH /orders/:id/status` | Solo ADMIN puede cambiar estados                            |
+| `GET /users`, `GET /users/:id` | Solo ADMIN tiene acceso a datos de usuario            |
+
+**Filtros disponibles en `GET /orders` para el agente:**
+
+| Query param | Ejemplo | Cuándo lo usa el agente |
+|-------------|---------|------------------------|
+| `orderNumber`    | `ORD-20240515-A3K9` | Cliente pregunta por un número de orden legible |
+| `email`          | `cliente@ejemplo.com` | Cliente da su correo para ver sus pedidos |
+| `trackingNumber` | `MX-DHL-12345` | Cliente pregunta por el estado de un envío |
+| `status`         | `PAID`, `SHIPPED` | Filtrar por estado específico |
+| `page`, `limit`  | `1`, `10` | Paginación estándar |
+
+**Shape de respuesta `AgentOrderView` (lo que recibe el agente):**
+
+```json
+{
+  "orderNumber": "ORD-20240515-A3K9",
+  "status": "SHIPPED",
+  "trackingNumber": "MX-DHL-12345",
+  "createdAt": "2024-05-15T10:30:00.000Z",
+  "items": [
+    {
+      "productNameSnapshot": "Samsung Galaxy A54 5G",
+      "quantity": 1,
+      "unitPriceInCents": 34999
+    }
+  ]
+}
+```
+
+Nótese que no hay `user`, no hay `totalInCents` en el nivel de la orden ni ningún identificador interno. El agente opera únicamente con datos que el cliente mismo conoce.
+
+---
 
 ## Correr proyecto
 
