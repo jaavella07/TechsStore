@@ -76,53 +76,74 @@ export class OrdersService {
     });
   }
 
-  //  Marcar orden como PAGADA (llamado por webhook) 
+  //  Marcar orden como PAGADA (llamado por webhook)
   async markAsPaid(stripeSessionId: string, paymentIntentId: string): Promise<Order> {
-    const order = await this.ordersRepo.findOne({
-      where: { stripeSessionId },
-      relations: ['user', 'items', 'items.product'],
-    });
+    const { order: resultOrder, wasJustPaid } = await this.dataSource.transaction(async (manager) => {
+      const orderRepo = manager.getRepository(Order);
 
-    if (!order) {
-      throw new NotFoundException(`Orden con session ${stripeSessionId} no encontrada`);
-    }
+      // Lock pesimista sobre la fila de la orden (sin joins) — evita que dos
+      // webhooks concurrentes para la misma sesión de Stripe procesen ambos
+      // la venta antes de que cualquiera confirme el cambio de estado.
+      const locked = await orderRepo
+        .createQueryBuilder('order')
+        .setLock('pessimistic_write')
+        .where('order.stripeSessionId = :stripeSessionId', { stripeSessionId })
+        .getOne();
 
-    if (order.status !== OrderStatus.PENDING) {
-      this.logger.warn(`Orden ${order.id} ya fue procesada (estado: ${order.status}). Ignorando.`);
-      return order;
-    }
+      if (!locked) {
+        throw new NotFoundException(`Orden con session ${stripeSessionId} no encontrada`);
+      }
 
-    //  ACCIÓN INMEDIATA: actualizar estado 
-    order.status                = OrderStatus.PAID;
-    order.stripePaymentIntentId = paymentIntentId;
-    const savedOrder = await this.ordersRepo.save(order);
+      const order = await orderRepo.findOneOrFail({
+        where: { id: locked.id },
+        relations: ['user', 'items', 'items.product'],
+      });
 
-    //  ACCIÓN ASÍNCRONA: confirmar stock y disparar cola 
-    await this.dataSource.transaction(async (manager) => {
+      if (order.status !== OrderStatus.PENDING) {
+        this.logger.warn(`Orden ${order.id} ya fue procesada (estado: ${order.status}). Ignorando.`);
+        return { order, wasJustPaid: false };
+      }
+
+      order.status                = OrderStatus.PAID;
+      order.stripePaymentIntentId = paymentIntentId;
+      const savedOrder = await orderRepo.save(order);
+
       for (const item of order.items) {
         await this.inventoryService.confirmSale(item.product.id, item.quantity, manager);
       }
+
+      // Limpiar carrito del usuario (las reservas ya fueron confirmadas)
+      await this.cartService.removeAfterPurchase(order.user.id, manager);
+
+      return { order: savedOrder, wasJustPaid: true };
     });
 
-    // Limpiar carrito del usuario (las reservas ya fueron confirmadas)
-    await this.cartService.removeAfterPurchase(order.user.id);
+    if (wasJustPaid) {
+      //  ENCOLAR TAREAS ASÍNCRONAS (BullMQ) — solo tras commit exitoso
+      const jobData: OrderPaidJobData = {
+        orderId:         resultOrder.id,
+        userId:          resultOrder.user.id,
+        userEmail:       resultOrder.user.email,
+        userName:        resultOrder.user.name,
+        totalAmount:     resultOrder.totalInCents,
+        stripeSessionId,
+        orderNumber:     resultOrder.orderNumber,
+        items: resultOrder.items.map(i => ({
+          productNameSnapshot: i.productNameSnapshot,
+          quantity:            i.quantity,
+          unitPriceInCents:    i.unitPriceInCents,
+          subtotalInCents:     i.subtotalInCents,
+        })),
+      };
 
-    //  ENCOLAR TAREAS ASÍNCRONAS (BullMQ) 
-    const jobData: OrderPaidJobData = {
-      orderId:         savedOrder.id,
-      userId:          order.user.id,
-      userEmail:       order.user.email,
-      userName:        order.user.name,
-      totalAmount:     savedOrder.totalInCents,
-      stripeSessionId,
-    };
+      await this.ordersQueue.add(JobName.PROCESS_ORDER_PAID, jobData, {
+        priority: 1,
+      });
 
-    await this.ordersQueue.add(JobName.PROCESS_ORDER_PAID, jobData, {
-      priority: 1,
-    });
+      this.logger.log(`Orden ${resultOrder.orderNumber} marcada como PAGADA. Jobs encolados.`);
+    }
 
-    this.logger.log(`Orden ${savedOrder.orderNumber} marcada como PAGADA. Jobs encolados.`);
-    return savedOrder;
+    return resultOrder;
   }
 
   //  Asignar Stripe Session ID a una orden 

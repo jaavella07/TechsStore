@@ -1,11 +1,11 @@
 import {
-  Controller, Get, Post, Body, Patch, Param, Delete,
+  Controller, Get, Body, Patch, Param, Delete,
   UseGuards, Query, ParseUUIDPipe, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { UsersService }               from '../services/users.service';
-import { CreateUserDto, UpdateUserDto, ChangeRoleDto } from '../dto/user.dto';
+import { UpdateUserDto, ChangeRoleDto } from '../dto/user.dto';
 import { PaginationDto } from '../../../common/dto/pagination.dto';
 import { JwtAuthGuard }               from '../../../modules/auth/guards/jwt-auth.guard';
 import { RolesGuard }                 from '../../../modules/auth/guards/roles.guard';
@@ -20,15 +20,7 @@ import { UserRole } from '@shared/enums';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  //  Registro público 
-  
-  @Post('register')
-  @ApiOperation({ summary: 'Registrar nuevo cliente' })
-  create(@Body() dto: CreateUserDto) {
-    return this.usersService.create(dto);
-  }
-
-  //  Listado (solo ADMIN) 
+  //  Listado (solo ADMIN)
   
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)

@@ -4,7 +4,7 @@ import { Job, Queue }                            from 'bullmq';
 import { InjectQueue }                           from '@nestjs/bullmq';
 
 import { QueueName, JobName }    from '@shared/enums';
-import { OrderPaidJobData }      from '@shared/interfaces';
+import { OrderPaidJobData, SendOrderEmailJobData } from '@shared/interfaces';
 
 /**
  * PROCESADOR PRINCIPAL DE ÓRDENES
@@ -40,7 +40,7 @@ export class OrdersProcessor extends WorkerHost {
   }
 
   private async handleOrderPaid(data: OrderPaidJobData): Promise<void> {
-    const { orderId, userId, userEmail, userName, totalAmount } = data;
+    const { orderId, userId, userEmail, userName, totalAmount, orderNumber, items } = data;
 
     // ── 1. Generar factura PDF ────────────────────────────
     await this.invoicesQueue.add(
@@ -49,10 +49,13 @@ export class OrdersProcessor extends WorkerHost {
       { priority: 1, delay: 0 },
     );
 
-    // ── 2. Enviar email de confirmación ───────────────────
+    // ── 2. Enviar email de confirmación (consumido por apps/notifications) ─
+    const emailJobData: SendOrderEmailJobData = {
+      orderId, userEmail, userName, totalAmount, orderNumber, items,
+    };
     await this.emailsQueue.add(
       JobName.SEND_ORDER_EMAIL,
-      { orderId, userEmail, userName, totalAmount },
+      emailJobData,
       { priority: 2, delay: 500 }, // pequeño delay para que la factura esté lista
     );
 

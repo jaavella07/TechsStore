@@ -4,11 +4,11 @@ import { ConfigService }         from '@nestjs/config';
 import { getRepositoryToken }    from '@nestjs/typeorm';
 import { UnauthorizedException } from '@nestjs/common';
 
-import { UserRole }              from '../../../shared/enums';
-import { User } from './domains/users/entities/user.entity';
-import { AuthService } from './modules/auth/auth.service';
-import { UsersService } from './domains/users/services/users.service';
-import { RefreshToken } from './domains/users/entities/refresh-token.entity';
+import { UserRole }              from '@shared/enums';
+import { User } from '../../domains/users/entities/user.entity';
+import { AuthService } from './auth.service';
+import { UsersService } from '../../domains/users/services/users.service';
+import { RefreshToken } from '../../domains/users/entities/refresh-token.entity';
 
 const mockUser = (): User => {
   const u        = new User();

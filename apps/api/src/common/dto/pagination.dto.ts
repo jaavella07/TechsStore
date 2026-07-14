@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsPositive, Min } from 'class-validator';
+import { IsInt, IsOptional, IsPositive, Max, Min } from 'class-validator';
 
 // Paginación por página (page + limit) — usada por orders y users
 export class PaginationDto {
@@ -15,15 +15,17 @@ export class PaginationDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(100)
   @Type(() => Number)
   limit?: number = 10;
 }
 
 // Paginación por offset (offset + limit) — usada por products
 export class OffsetPaginationDto {
-  @ApiPropertyOptional({ default: 12, description: 'Número de resultados por página' })
+  @ApiPropertyOptional({ default: 12, minimum: 1, maximum: 100, description: 'Número de resultados por página' })
   @IsOptional()
   @IsPositive()
+  @Max(100)
   @Type(() => Number)
   limit?: number;
 

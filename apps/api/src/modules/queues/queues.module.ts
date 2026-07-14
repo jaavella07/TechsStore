@@ -7,7 +7,6 @@ import { Order }         from '../../domains/orders/entities/order.entity';
 
 import { OrdersProcessor }   from './processors/orders.processor';
 import { InvoicesProcessor } from './processors/invoices.processor';
-import { EmailsProcessor }   from './processors/emails.processor';
 import { ShippingProcessor } from './processors/shipping.processor';
 import { OrdersModule }      from '../../domains/orders/orders.module';
 
@@ -30,7 +29,6 @@ import { OrdersModule }      from '../../domains/orders/orders.module';
   providers: [
     OrdersProcessor,
     InvoicesProcessor,
-    EmailsProcessor,
     ShippingProcessor,
   ],
   exports: [BullModule],

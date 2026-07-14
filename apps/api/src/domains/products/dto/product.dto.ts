@@ -113,7 +113,7 @@ export class ProductFilterDto extends OffsetPaginationDto {
   @ApiPropertyOptional() @IsOptional() @IsString()
   search?: string;
 
-  @ApiPropertyOptional() @IsOptional() @IsString()
+  @ApiPropertyOptional() @IsOptional() @IsUUID()
   categoryId?: string;
 
   @ApiPropertyOptional() @IsOptional() @IsString()

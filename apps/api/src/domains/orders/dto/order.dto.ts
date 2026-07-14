@@ -1,6 +1,6 @@
 import {
   IsString, IsOptional, ValidateNested, IsEnum,
-  MaxLength, IsInt, Min,
+  MaxLength,
 } from 'class-validator';
 import { Type }         from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -71,15 +71,7 @@ export class MyOrdersFilterDto extends PaginationDto {
   status?: OrderStatus;
 }
 
-export class AdminOrdersFilterDto {
-  @ApiPropertyOptional({ example: 1 })
-  @IsOptional() @IsInt() @Min(1) @Type(() => Number)
-  page?: number;
-
-  @ApiPropertyOptional({ example: 10 })
-  @IsOptional() @IsInt() @Min(1) @Type(() => Number)
-  limit?: number;
-
+export class AdminOrdersFilterDto extends PaginationDto {
   @ApiPropertyOptional({ example: 'ORD-20240515-A3K9' })
   @IsOptional() @IsString()
   orderNumber?: string;

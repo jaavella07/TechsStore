@@ -2,8 +2,9 @@ import { Module }       from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { BullModule }   from '@nestjs/bullmq';
 import { MailModule }   from './mail/mail.module';
-import { QueueName }    from '../../../shared/enums';
-import { NotificationsController } from './notifications.controller';
+import { QueueName }    from '@shared/enums';
+import { EmailsProcessor } from './queues/processors/emails.processor';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -18,11 +19,12 @@ import { NotificationsController } from './notifications.controller';
       },
     }),
 
-    // ── Este microservicio también puede consumir la cola de emails
+    // ── Worker BullMQ real de la cola de emails ───────────
     BullModule.registerQueue({ name: QueueName.EMAILS }),
 
     MailModule,
   ],
-  controllers: [NotificationsController],
+  controllers: [HealthController],
+  providers: [EmailsProcessor],
 })
 export class NotificationsModule {}

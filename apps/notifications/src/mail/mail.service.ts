@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { SendOrderEmailJobData } from '@shared/interfaces';
 
 @Injectable()
 export class MailService {
@@ -79,7 +80,7 @@ export class MailService {
         <p>Estamos felices de tenerte con nosotros. Explora nuestro catálogo de tecnología 
            y encuentra la mejor oferta para ti.</p>
         <div style="text-align:center;margin:28px 0">
-          <a href="${this.config.get('FRONTEND_URL', 'http://localhost:4200')}"
+          <a href="${this.config.get('FRONTEND_URL', 'http://localhost:5173')}"
              style="background:#1a21be;color:#fff;padding:14px 32px;border-radius:8px;
                     text-decoration:none;font-weight:bold;font-size:15px">
             Explorar Catálogo
@@ -90,15 +91,67 @@ export class MailService {
     this.logger.log(`Email WELCOME → ${to}`);
   }
 
+  // ── Orden confirmada con detalle de productos (envío real post-pago) ─
+  async sendOrderConfirmationDetailed(data: SendOrderEmailJobData): Promise<void> {
+    const { userEmail, userName, orderNumber, items, totalAmount } = data;
+
+    const itemsHtml = items
+      .map(
+        (item) => `
+        <tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee">${item.productNameSnapshot}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:center">${item.quantity}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right">$${(item.unitPriceInCents / 100).toFixed(2)}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:bold">$${(item.subtotalInCents / 100).toFixed(2)}</td>
+        </tr>`,
+      )
+      .join('');
+
+    const content = `
+      <h2 style="color:#1a21be;margin:0 0 8px">¡Gracias por tu compra, ${userName}! 🎉</h2>
+      <p style="color:#555;margin:0 0 24px;line-height:1.6">
+        Hemos recibido tu pago exitosamente. Tu orden <strong>${orderNumber}</strong> está siendo procesada.
+      </p>
+
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px">
+        <thead>
+          <tr style="background:#f0f2ff">
+            <th style="padding:10px 12px;text-align:left;font-size:12px;color:#1a21be;text-transform:uppercase">Producto</th>
+            <th style="padding:10px 12px;text-align:center;font-size:12px;color:#1a21be;text-transform:uppercase">Cant.</th>
+            <th style="padding:10px 12px;text-align:right;font-size:12px;color:#1a21be;text-transform:uppercase">Precio</th>
+            <th style="padding:10px 12px;text-align:right;font-size:12px;color:#1a21be;text-transform:uppercase">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>${itemsHtml}</tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3" style="padding:12px;text-align:right;font-weight:bold;color:#333">TOTAL:</td>
+            <td style="padding:12px;text-align:right;font-weight:bold;font-size:16px;color:#1a21be">$${(totalAmount / 100).toFixed(2)} USD</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:16px;margin-bottom:24px">
+        <p style="margin:0;color:#0369a1;font-size:13px">
+          📄 <strong>Tu factura PDF</strong> será enviada en un correo adicional en los próximos minutos.
+        </p>
+      </div>
+
+      <p style="color:#555;font-size:13px;line-height:1.6">
+        Si tienes alguna pregunta, escríbenos a
+        <a href="mailto:soporte@techsstore.com" style="color:#1a21be">soporte@techsstore.com</a>
+      </p>
+    `;
+
+    await this.send(
+      userEmail,
+      `✅ Orden confirmada ${orderNumber} — TechsStore`,
+      this.wrapLayout(content),
+    );
+    this.logger.log(`Email ORDER_CONFIRMED (detallado) → ${userEmail}`);
+  }
+
   // ── Envío genérico ───────────────────────────────────────
-  // private async send(to: string, subject: string, html: string): Promise<void> {
-  //   try {
-  //     await this.transporter.sendMail({ from: this.from, to, subject, html });
-  //   } catch (err) {
-  //     this.logger.error(`Error enviando email a ${to}: ${err.message}`);
-  //     throw err; // BullMQ reintentará el job
-  //   }
-  // }
   private async send(to: string, subject: string, html: string): Promise<void> {
     try {
       await this.transporter.sendMail({ from: this.from, to, subject, html });

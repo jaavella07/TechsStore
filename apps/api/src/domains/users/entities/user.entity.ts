@@ -9,6 +9,7 @@ import { Order }    from '../../orders/entities/order.entity';
 import { Cart }     from '../../cart/entities/cart.entity';
 import { RefreshToken } from './refresh-token.entity';
 import { UserRole } from '@shared/enums';
+import { BCRYPT_SALT_ROUNDS } from '../../../common/constants/bcrypt.constants';
 
 @Entity('users')
 export class User {
@@ -56,7 +57,7 @@ export class User {
   @BeforeUpdate()
   async hashPassword() {
     if (this.password) {
-      this.password = await bcrypt.hash(this.password, 12);
+      this.password = await bcrypt.hash(this.password, BCRYPT_SALT_ROUNDS);
     }
   }
 

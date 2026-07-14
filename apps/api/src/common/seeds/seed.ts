@@ -18,6 +18,7 @@ import { ProductAttribute } from '../../domains/products/entities/product-attrib
 import { ProductImage }     from '../../domains/products/entities/product-image.entity';
 import { Inventory }        from '../../domains/products/entities/inventory.entity';
 import { Cart }             from '../../domains/cart/entities/cart.entity';
+import { BCRYPT_SALT_ROUNDS } from '../constants/bcrypt.constants';
 import { CartItem }         from '../../domains/cart/entities/cart.entity';
 import { Order }            from '../../domains/orders/entities/order.entity';
 import { OrderItem }        from '../../domains/orders/entities/order.entity';
@@ -50,7 +51,7 @@ async function seed() {
     const admin = usersRepo.create({
       name:     'Admin TechsStore',
       email:    'admin@techsstore.com',
-      password: await bcrypt.hash('Admin1234', 12),
+      password: await bcrypt.hash('Admin1234', BCRYPT_SALT_ROUNDS),
       role:     UserRole.ADMIN,
       isActive: true,
     });
@@ -63,7 +64,7 @@ async function seed() {
     const client = usersRepo.create({
       name:     'Cliente Demo',
       email:    'cliente@techsstore.com',
-      password: await bcrypt.hash('Client123', 12),
+      password: await bcrypt.hash('Client123', BCRYPT_SALT_ROUNDS),
       role:     UserRole.CLIENT,
       isActive: true,
     });

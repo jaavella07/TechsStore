@@ -55,26 +55,30 @@ export class CartService {
 
     const existingItem = cart.items?.find(i => i.product.id === dto.productId);
 
-    if (existingItem) {
-      // Reservar solo la diferencia adicional
-      await this.inventoryService.reserve(dto.productId, dto.quantity);
-      existingItem.quantity += dto.quantity;
-      await this.cartItemRepo.save(existingItem);
-    } else {
-      // Reservar stock y crear el ítem
-      await this.inventoryService.reserve(dto.productId, dto.quantity);
+    await this.dataSource.transaction(async (manager) => {
+      const cartItemRepo = manager.getRepository(CartItem);
+      const cartRepo      = manager.getRepository(Cart);
 
-      const item = this.cartItemRepo.create({
-        cart:                 { id: cart.id } as Cart,    // ← solo la referencia (no el objeto completo)
-        product:              { id: product.id } as Product, // ← ídem
-        quantity:             dto.quantity,
-        priceSnapshotInCents: product.finalPriceInCents,
-      });
-      await this.cartItemRepo.save(item);
-    }
+      if (existingItem) {
+        // Reservar solo la diferencia adicional
+        await this.inventoryService.reserve(dto.productId, dto.quantity, manager);
+        existingItem.quantity += dto.quantity;
+        await cartItemRepo.save(existingItem);
+      } else {
+        // Reservar stock y crear el ítem
+        await this.inventoryService.reserve(dto.productId, dto.quantity, manager);
 
+        const item = cartItemRepo.create({
+          cart:                 { id: cart.id } as Cart,    // ← solo la referencia (no el objeto completo)
+          product:              { id: product.id } as Product, // ← ídem
+          quantity:             dto.quantity,
+          priceSnapshotInCents: product.finalPriceInCents,
+        });
+        await cartItemRepo.save(item);
+      }
 
-    await this.cartRepo.update(cart.id, { expiresAt: this.newExpiry() });
+      await cartRepo.update(cart.id, { expiresAt: this.newExpiry() });
+    });
 
     this.logger.log(`Item añadido: user=${userId} product=${dto.productId} qty=${dto.quantity}`);
 
@@ -82,7 +86,7 @@ export class CartService {
     return this.getOrCreateCart(userId);
   }
 
-  //  Actualizar cantidad de un ítem 
+  //  Actualizar cantidad de un ítem
   async updateItem(userId: string, itemId: string, dto: UpdateCartItemDto): Promise<Cart> {
     const cart = await this.getOrCreateCart(userId);
     const item = cart.items?.find(i => i.id === itemId);
@@ -91,32 +95,41 @@ export class CartService {
 
     const delta = dto.quantity - item.quantity;
 
-    if (delta > 0) {
-      await this.inventoryService.reserve(item.product.id, delta);
-    } else if (delta < 0) {
-      await this.inventoryService.release(item.product.id, Math.abs(delta));
-    }
+    await this.dataSource.transaction(async (manager) => {
+      const cartItemRepo = manager.getRepository(CartItem);
+      const cartRepo      = manager.getRepository(Cart);
 
-    item.quantity = dto.quantity;
-    await this.cartItemRepo.save(item);
+      if (delta > 0) {
+        await this.inventoryService.reserve(item.product.id, delta, manager);
+      } else if (delta < 0) {
+        await this.inventoryService.release(item.product.id, Math.abs(delta), manager);
+      }
 
+      item.quantity = dto.quantity;
+      await cartItemRepo.save(item);
 
-    await this.cartRepo.update(cart.id, { expiresAt: this.newExpiry() });
+      await cartRepo.update(cart.id, { expiresAt: this.newExpiry() });
+    });
 
     return this.getOrCreateCart(userId);
   }
 
-  //  Eliminar ítem del carrito 
+  //  Eliminar ítem del carrito
   async removeItem(userId: string, itemId: string): Promise<Cart> {
     const cart = await this.getOrCreateCart(userId);
     const item = cart.items?.find(i => i.id === itemId);
 
     if (!item) throw new NotFoundException(`Ítem ${itemId} no encontrado`);
 
-    await this.inventoryService.release(item.product.id, item.quantity);
-    await this.cartItemRepo.remove(item);
+    await this.dataSource.transaction(async (manager) => {
+      const cartItemRepo = manager.getRepository(CartItem);
+      const cartRepo      = manager.getRepository(Cart);
 
-    await this.cartRepo.update(cart.id, { expiresAt: this.newExpiry() });
+      await this.inventoryService.release(item.product.id, item.quantity, manager);
+      await cartItemRepo.remove(item);
+
+      await cartRepo.update(cart.id, { expiresAt: this.newExpiry() });
+    });
 
     return this.getOrCreateCart(userId);
   }
@@ -128,10 +141,11 @@ export class CartService {
     await this.cartRepo.remove(cart);
   }
 
-  // Limpiar carrito TRAS compra exitosa 
-  async removeAfterPurchase(userId: string): Promise<void> {
-    const cart = await this.cartRepo.findOne({ where: { user: { id: userId } } });
-    if (cart) await this.cartRepo.remove(cart);
+  // Limpiar carrito TRAS compra exitosa
+  async removeAfterPurchase(userId: string, manager?: EntityManager): Promise<void> {
+    const repo = manager ? manager.getRepository(Cart) : this.cartRepo;
+    const cart = await repo.findOne({ where: { user: { id: userId } } });
+    if (cart) await repo.remove(cart);
   }
 
   // liberar carritos expirados 

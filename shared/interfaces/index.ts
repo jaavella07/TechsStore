@@ -23,6 +23,14 @@ export interface PaginatedResult<T> {
   totalPages: number;
 }
 
+// ─── Snapshot de ítem de orden para jobs (evita acoplar a BD) ─
+export interface OrderPaidItemSnapshot {
+  productNameSnapshot: string;
+  quantity: number;
+  unitPriceInCents: number;
+  subtotalInCents: number;
+}
+
 // ─── Job de orden pagada (payload para BullMQ) ───────────────
 export interface OrderPaidJobData {
   orderId: string;
@@ -31,6 +39,18 @@ export interface OrderPaidJobData {
   userName: string;
   totalAmount: number;
   stripeSessionId: string;
+  orderNumber: string;
+  items: OrderPaidItemSnapshot[];
+}
+
+// ─── Job específico de emails-queue (consumido por apps/notifications) ─
+export interface SendOrderEmailJobData {
+  orderId: string;
+  userEmail: string;
+  userName: string;
+  totalAmount: number;
+  orderNumber: string;
+  items: OrderPaidItemSnapshot[];
 }
 
 // ─── Parámetros de paginación ────────────────────────────────

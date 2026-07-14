@@ -14,6 +14,7 @@ import { RefreshToken }       from '../../domains/users/entities/refresh-token.e
 import { CreateUserDto }      from '../../domains/users/dto/user.dto';
 import { LoginDto }           from './dto/auth.dto';
 import { JwtPayload } from '@shared/interfaces';
+import { BCRYPT_SALT_ROUNDS } from '../../common/constants/bcrypt.constants';
 
 
 @Injectable()
@@ -45,8 +46,6 @@ export class AuthService {
 
   // ── Refresh tokens ───────────────────────────────────────
   async refreshTokens(userId: string, rawRefreshToken: string) {
-    const tokenHash = await bcrypt.hash(rawRefreshToken, 10);
-
     // Buscar un token válido del usuario
     const stored = await this.rtRepo
       .createQueryBuilder('rt')
@@ -114,7 +113,7 @@ export class AuthService {
 
   // ── Guardar refresh token (hasheado) ────────────────────
   private async storeRefreshToken(user: User, rawToken: string): Promise<void> {
-    const tokenHash = await bcrypt.hash(rawToken, 10);
+    const tokenHash = await bcrypt.hash(rawToken, BCRYPT_SALT_ROUNDS);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 días
 

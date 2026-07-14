@@ -58,6 +58,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     // ── Respuesta JSON estandarizada ──────────────────────
     response.status(status).json({
+      success:   false,
       statusCode: status,
       error,
       message,

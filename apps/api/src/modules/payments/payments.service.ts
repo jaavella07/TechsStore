@@ -35,7 +35,7 @@ export class PaymentsService {
     order: Order,
     user: User,
   ): Promise<{ url: string; sessionId: string }> {
-    const frontendUrl = this.config.get('FRONTEND_URL', 'http://localhost:4200');
+    const frontendUrl = this.config.get('FRONTEND_URL', 'http://localhost:5173');
 
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = order.items.map((item) => ({
       price_data: {

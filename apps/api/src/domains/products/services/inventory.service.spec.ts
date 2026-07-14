@@ -2,8 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken }   from '@nestjs/typeorm';
 import { DataSource }           from 'typeorm';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { InventoryService } from './domains/products/services/inventory.service';
-import { Inventory } from './domains/products/entities/inventory.entity';
+import { InventoryService } from './inventory.service';
+import { Inventory } from '../entities/inventory.entity';
 
 
 // ── Mock factory para repositorio TypeORM ────────────────────
