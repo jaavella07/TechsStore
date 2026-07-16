@@ -52,7 +52,6 @@ El manejo de usuarios se realiza bajo los siguientes endpoints:
 | POST   | `/auth/refresh`    | Público     | Renovar access token                  |
 | POST   | `/auth/logout`     | Autenticado | Revocar todos los refresh tokens      |
 | GET    | `/auth/me`         | Autenticado | Verificar token y obtener usuario     |
-| POST   | `/users/register`  | Público     | Registrar cliente sin tokens          |
 | GET    | `/users`           | ADMIN       | Listar usuarios paginados             |
 | GET    | `/users/me`        | Autenticado | Ver mi perfil                         |
 | GET    | `/users/:id`       | ADMIN       | Ver usuario por ID                    |
@@ -206,7 +205,9 @@ En Docker hay un panel visual en `localhost:3030` (Bull Board) donde puedo ver c
 
 Este fue el módulo que más me costó construir al principio. La idea es que cuando pasa algo importante en la tienda (un pago, un envío) el cliente recibe un correo. Lo complicado fue separarlo del resto de la app. De manera que en un futuro sea mas facil adaptar otro tipo de notificaciones, como puede ser WhatsApp.
 
-El microservicio de notificaciones corre por su cuenta, en otro proceso. La API le manda una señal por **TCP** diciéndole qué correo enviar, y él se encarga del resto usando **Nodemailer**.
+El microservicio de notificaciones corre por su cuenta, en otro proceso, y **no tiene conexión a base de datos**: consume la cola `emails-queue` directamente desde Redis con **BullMQ** y envía el correo con **Nodemailer** usando los datos que ya vienen armados en el payload del job (número de orden, ítems).
+
+No siempre fue así. La primera versión exponía un controlador **TCP** (`@MessagePattern`) para que la API le avisara qué correo enviar. En una auditoría posterior del monorepo encontré que ese controlador nunca era invocado por nadie: la API tenía su propio `EmailsProcessor` duplicado que armaba y enviaba el correo directamente con su propio transporter de Nodemailer, dejando a `apps/notifications` completamente desconectado del flujo real pese a estar documentado como el servicio responsable de los correos. Eliminé el processor duplicado de la API, el transporte TCP muerto y el `notifications.controller.ts` que lo exponía, y dejé `apps/notifications` como lo que declara ser: un **worker BullMQ puro** que solo escucha `emails-queue` y expone un health-check HTTP mínimo (`GET /health`) para verificar que el proceso sigue vivo.
 
 Los correos que puede enviar son:
 - Confirmación de orden
@@ -216,7 +217,7 @@ Los correos que puede enviar son:
 
 Todos usan la misma plantilla HTML que armé en `MailService`, así todos los correos se ven igual y con el logo de TechsStore.
 
-Algo que me generó un error al levantar Docker fue que intenté usar el mismo puerto (`4000`) para dos cosas distintas dentro del mismo proceso: recibir mensajes TCP de la API y levantar el servidor HTTP. Eso causó un `EADDRINUSE`. Lo resolví usando puertos separados: TCP en `4000` y HTTP en `4001`. Truco del profesor Fernando Herrera aprendido en el repositorio de microservices.
+Algo que me generó un error al levantar Docker en la versión con TCP fue que intenté usar el mismo puerto (`4000`) para dos cosas distintas dentro del mismo proceso: recibir mensajes TCP de la API y levantar el servidor HTTP. Eso causó un `EADDRINUSE`. Lo resolví en su momento usando puertos separados (TCP en `4000`, HTTP en `4001`) — truco del profesor Fernando Herrera aprendido en el repositorio de microservices. Tras eliminar el transporte TCP, ese problema quedó obsoleto por completo: hoy solo existe `NOTIFICATIONS_HTTP_PORT` (`4001`), usado únicamente por el health-check.
 
 ---
 
@@ -441,6 +442,33 @@ Nótese que no hay `user`, no hay `totalInCents` en el nivel de la orden ni ning
 
 ---
 
+### 10. Auditoría de correctitud, seguridad y testing
+
+Con el agente conversacional ya integrado, hice una auditoría completa del monorepo (`apps/api` + `apps/notifications` + `shared/`) buscando específicamente los puntos donde una falla a mitad de operación pudiera dejar la base de datos en un estado inconsistente, o donde faltara una prueba automatizada cubriendo la lógica más crítica. Encontré 14 problemas concretos y los corregí en orden de dependencia, verificando build y tests después de cada cambio.
+
+**Correctitud crítica y seguridad**
+
+- **Reconexión de `notifications`** — ver sección 7. Era el hallazgo más grave: el microservicio documentado como responsable de los correos estaba desconectado del flujo real.
+- **Secretos JWT separados** — `JWT_ACCESS_SECRET` y `JWT_REFRESH_SECRET` eran el mismo valor literal. Ahora son dos valores aleatorios de 64 caracteres hex distintos, para que comprometer uno no permita falsificar el otro.
+- **Atomicidad en el carrito** — `CartService.addItem/updateItem/removeItem` envuelven la reserva/liberación de stock y el guardado del `CartItem` en una sola transacción. Antes, si el guardado fallaba después de reservar stock, quedaba una reserva huérfana sin carrito asociado.
+- **Atomicidad en `markAsPaid`** — el lock pesimista, el chequeo de idempotencia, el cambio a `PAID`, `confirmSale` por ítem y la limpieza del carrito ahora corren en una única transacción. Antes eran pasos separados sin lock: dos webhooks concurrentes de Stripe para la misma sesión podían leer `PENDING` a la vez y procesar la venta dos veces.
+- **Límite superior de paginación** — `PaginationDto.limit` y `OffsetPaginationDto.limit` ahora tienen `@Max(100)`. Antes el límite solo estaba documentado en Swagger, no validado: un cliente podía pedir `limit=999999`.
+- **Validación de `ProductFilterDto.categoryId`** — pasó de `@IsString()` a `@IsUUID()`, para que un valor inválido devuelva `400` en vez de un `500` sin controlar a nivel SQL.
+- **`POST /users/register` eliminado** — duplicaba a `/auth/register` pero sin su throttling estricto (5 req/min), quedando cubierto solo por el límite global (60 req/min): era una vía para eludir la protección anti-fuerza-bruta del registro.
+- **Helmet + límite de body + envelope de error simétrico** — se agregó `helmet()` y un límite de `1mb` en los body parsers de `main.ts` (usando la API nativa de Nest v11, que preserva la captura de `rawBody` que necesita la firma del webhook de Stripe). `GlobalExceptionFilter` ahora responde con `success: false`, igual que `TransformInterceptor` responde con `success: true` en el camino feliz.
+
+**Testing**
+
+Antes de esta auditoría `npm run test:e2e` estaba roto (apuntaba a un `jest-e2e.json` inexistente) y no había ninguna prueba de extremo a extremo del flujo HTTP real. Se agregó `apps/api/test/jest-e2e.json` y dos specs de humo: `auth.e2e-spec.ts` (registro, registro duplicado con `409`, login válido/inválido) y `products.e2e-spec.ts` (listado público y regresión del límite de paginación con `limit=999` → `400`).
+
+También se reubicaron los specs unitarios existentes junto a sus servicios reales (antes vivían sueltos en la raíz de `src/`) y se agregaron specs nuevos para la lógica recién endurecida: `orders.service.spec.ts` (idempotencia de `markAsPaid`, rollback si `confirmSale` falla, proyección `AgentOrderView` sin PII), `cart.service.spec.ts` (reserva/liberación transaccional, rollback si falta stock), `products.service.spec.ts` (paginación en dos pasos), `jwt-auth.guard.spec.ts` y `roles.guard.spec.ts`. Total: **44 tests unitarios**, todos pasando.
+
+**Higiene**
+
+`.env.example` quedó completo con las variables de correo, `FRONTEND_URL` y `NOTIFICATIONS_HTTP_PORT` que ya se usaban en producción pero faltaban documentar. Se unificaron las rondas de bcrypt en una sola constante (`BCRYPT_SALT_ROUNDS=12`, antes inconsistente entre passwords y refresh tokens), se quitó `passport-local` (instalado pero sin ningún `LocalStrategy` que lo usara) y se corrigió el `FRONTEND_URL` por defecto de `4200` (Angular) a `5173` (Vite) en los tres lugares donde estaba hardcodeado. Finalmente se activó `noImplicitAny: true` en el `tsconfig.json` raíz — el código ya no tenía ningún uso implícito de `any`, así que se pudo activar sin cambios adicionales.
+
+---
+
 ## Correr proyecto
 
 ### 1. Instalar dependencias
@@ -489,4 +517,11 @@ docker-compose ps
 stripe login
 stripe listen --forward-to localhost:3000/payments/webhook
 stripe trigger checkout.session.completed
+```
+
+### 8. Correr los tests
+```bash
+npm test              # 44 tests unitarios
+npm run test:cov      # con reporte de cobertura
+npm run test:e2e      # requiere Postgres + Redis levantados (docker-compose up -d)
 ```

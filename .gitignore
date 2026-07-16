@@ -11,9 +11,10 @@ build/
 .env.*.local
 !.env.example
  
-# Archivos 
+# Archivos
 CLAUDE.md
 .claude
+summary.txt
 
 # Logs
 logs/
